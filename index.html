@@ -2,16 +2,17 @@
 <html lang="es" class="dark">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>Atleta Zen — Salud, Running & Nutrición PWA</title>
   
-  <!-- PWA & Mobile Meta Tags -->
+  <!-- PWA & Mobile Meta Tags (Optimizado para iOS y Android) -->
   <meta name="description" content="PWA personal para corredor de fondo amateur: planificador inteligente VDOT 6 días, nutrición metabólica TDEE dinámico, hidratación adaptativa y hábitos estoicos." />
   <meta name="theme-color" content="#090d16" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="AtletaZen" />
+  <meta name="format-detection" content="telephone=no" />
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" type="image/svg+xml" href="icons/icon.svg" />
   <link rel="apple-touch-icon" href="icons/icon-192.png" />
@@ -48,10 +49,20 @@
   </script>
 
   <style>
-    /* Custom scrollbars and transitions */
+    /* Mobile-first resets & smooth touch interactions */
+    * {
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+
+    body {
+      padding-top: env(safe-area-inset-top, 0px);
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+    }
+
     ::-webkit-scrollbar {
-      width: 6px;
-      height: 6px;
+      width: 4px;
+      height: 4px;
     }
     ::-webkit-scrollbar-track {
       background: #090d16;
@@ -60,57 +71,79 @@
       background: #1e293b;
       border-radius: 9999px;
     }
-    ::-webkit-scrollbar-thumb:hover {
-      background: #334155;
+
+    .safe-bottom-nav {
+      padding-bottom: calc(0.6rem + env(safe-area-inset-bottom, 0px));
     }
-    .safe-bottom-padding {
-      padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px));
+    .safe-content-padding {
+      padding-bottom: calc(6rem + env(safe-area-inset-bottom, 0px));
+    }
+
+    /* Active tab animation & glow */
+    .tab-btn.active {
+      color: #34d399 !important;
+    }
+    .tab-btn.active .tab-icon {
+      transform: translateY(-2px);
+      filter: drop-shadow(0 2px 8px rgba(16, 185, 129, 0.4));
+    }
+    .tab-btn.active .tab-dot {
+      opacity: 1;
+      transform: scale(1);
+    }
+
+    /* Micro-interactions */
+    .touch-press:active {
+      transform: scale(0.97);
+      transition: transform 0.1s ease;
     }
   </style>
 </head>
-<body class="bg-slate-950 text-slate-100 font-sans min-h-screen antialiased selection:bg-emerald-500 selection:text-slate-950">
+<body class="bg-slate-950 text-slate-100 font-sans min-h-screen antialiased selection:bg-emerald-500 selection:text-slate-950 flex flex-col">
 
   <!-- ====================================================================== -->
-  <!-- BARRA SUPERIOR (HEADER)                                                -->
+  <!-- BARRA SUPERIOR (HEADER COMPACTO PARA MÓVILES)                          -->
   <!-- ====================================================================== -->
-  <header class="sticky top-0 z-40 bg-slate-950/85 backdrop-blur-md border-b border-slate-800/80 px-4 py-3 sm:px-6">
-    <div class="max-w-6xl mx-auto flex items-center justify-between gap-3">
+  <header class="sticky top-0 z-40 bg-slate-950/95 backdrop-blur-md border-b border-slate-800/80 px-3.5 py-2.5 sm:px-6">
+    <div class="max-w-6xl mx-auto flex items-center justify-between gap-2">
       
-      <!-- Brand & Title -->
-      <div class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-cyan-500 flex items-center justify-center p-2 shadow-lg shadow-emerald-950/50">
-          <svg class="w-full h-full stroke-slate-950 stroke-[2.5] fill-none" viewBox="0 0 24 24">
+      <!-- Brand & Mini Avatar -->
+      <div class="flex items-center gap-2.5">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-cyan-500 flex items-center justify-center p-2 shadow-md shadow-emerald-950/40 shrink-0">
+          <svg class="w-full h-full stroke-slate-950 stroke-[2.8] fill-none" viewBox="0 0 24 24">
             <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
           </svg>
         </div>
         <div>
-          <div class="flex items-center gap-2">
-            <h1 class="text-base sm:text-lg font-black tracking-tight text-white flex items-center gap-1.5">
+          <div class="flex items-center gap-1.5">
+            <h1 class="text-sm sm:text-base font-black tracking-tight text-white flex items-center gap-1">
               ATLETA <span class="text-emerald-400">ZEN</span>
             </h1>
-            <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-300 font-semibold border border-zinc-700">PWA</span>
+            <span class="text-[9px] font-mono px-1 py-0.2 rounded bg-zinc-800 text-zinc-300 font-semibold border border-zinc-700">PWA</span>
           </div>
-          <p class="text-xs text-slate-400 hidden sm:block">Salud, Rendimiento & Filosofía de Entrenamiento</p>
+          <p class="text-[10px] text-slate-400 hidden xs:block truncate">Corredor de Fondo • 6 días/sem</p>
         </div>
       </div>
 
       <!-- User Badge & Actions -->
-      <div class="flex items-center gap-2 sm:gap-3">
-        <div id="header-user-badge" class="hidden md:block"></div>
+      <div class="flex items-center gap-1.5 sm:gap-2">
+        <div id="header-user-badge">
+          <!-- Inyectado por JS -->
+        </div>
 
         <!-- Botón Instalar PWA -->
-        <button id="btn-install-pwa" class="hidden px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-md transition-all flex items-center gap-1.5 animate-pulse">
+        <button id="btn-install-pwa" class="hidden px-2.5 py-1.5 rounded-lg text-[11px] font-bold bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-md transition-all flex items-center gap-1 touch-press">
           <svg class="w-3.5 h-3.5 stroke-current stroke-2 fill-none" viewBox="0 0 24 24">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
             <polyline points="7 10 12 15 17 10"></polyline>
             <line x1="12" y1="15" x2="12" y2="3"></line>
           </svg>
-          <span>Instalar App</span>
+          <span class="hidden sm:inline">Instalar</span>
         </button>
 
         <!-- Botón Perfil / Configuración -->
-        <button id="btn-open-profile" class="p-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 transition-colors" title="Configurar Perfil y Objetivos">
-          <svg class="w-5 h-5 stroke-current stroke-2 fill-none" viewBox="0 0 24 24">
+        <button id="btn-open-profile" class="p-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 transition-colors touch-press" title="Configurar Perfil">
+          <svg class="w-4 h-4 stroke-current stroke-2 fill-none" viewBox="0 0 24 24">
             <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
             <circle cx="12" cy="7" r="4"></circle>
           </svg>
@@ -123,9 +156,9 @@
   <!-- ====================================================================== -->
   <!-- NAVEGACIÓN DE ESCRITORIO (TABS)                                        -->
   <!-- ====================================================================== -->
-  <nav class="hidden md:block border-b border-slate-800/80 bg-slate-900/40 sticky top-[65px] z-30 backdrop-blur-md">
+  <nav class="hidden md:block border-b border-slate-800/80 bg-slate-900/40 sticky top-[57px] z-30 backdrop-blur-md">
     <div class="max-w-6xl mx-auto px-4 sm:px-6 flex items-center gap-2">
-      <button data-tab-target="tab-dashboard" class="px-4 py-3 text-sm font-semibold border-b-2 border-transparent transition-all flex items-center gap-2">
+      <button data-tab-target="tab-dashboard" class="desktop-tab-btn px-4 py-3 text-sm font-semibold border-b-2 border-transparent transition-all flex items-center gap-2">
         <svg class="w-4 h-4 stroke-current stroke-2 fill-none" viewBox="0 0 24 24">
           <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
           <polyline points="9 22 9 12 15 12 15 22"></polyline>
@@ -133,32 +166,29 @@
         <span>Dashboard</span>
       </button>
 
-      <button data-tab-target="tab-running" class="px-4 py-3 text-sm font-semibold border-b-2 border-transparent transition-all flex items-center gap-2">
+      <button data-tab-target="tab-running" class="desktop-tab-btn px-4 py-3 text-sm font-semibold border-b-2 border-transparent transition-all flex items-center gap-2">
         <svg class="w-4 h-4 stroke-current stroke-2 fill-none" viewBox="0 0 24 24">
           <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
         </svg>
         <span>Running & VDOT</span>
       </button>
 
-      <button data-tab-target="tab-nutrition" class="px-4 py-3 text-sm font-semibold border-b-2 border-transparent transition-all flex items-center gap-2">
+      <button data-tab-target="tab-nutrition" class="desktop-tab-btn px-4 py-3 text-sm font-semibold border-b-2 border-transparent transition-all flex items-center gap-2">
         <svg class="w-4 h-4 stroke-current stroke-2 fill-none" viewBox="0 0 24 24">
           <path d="M18 8h1a4 4 0 0 1 0 8h-1"></path>
           <path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"></path>
-          <line x1="6" y1="1" x2="6" y2="4"></line>
-          <line x1="10" y1="1" x2="10" y2="4"></line>
-          <line x1="14" y1="1" x2="14" y2="4"></line>
         </svg>
         <span>Nutrición & TDEE</span>
       </button>
 
-      <button data-tab-target="tab-hydration" class="px-4 py-3 text-sm font-semibold border-b-2 border-transparent transition-all flex items-center gap-2">
+      <button data-tab-target="tab-hydration" class="desktop-tab-btn px-4 py-3 text-sm font-semibold border-b-2 border-transparent transition-all flex items-center gap-2">
         <svg class="w-4 h-4 stroke-current stroke-2 fill-none" viewBox="0 0 24 24">
           <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path>
         </svg>
         <span>Hidratación</span>
       </button>
 
-      <button data-tab-target="tab-medications" class="px-4 py-3 text-sm font-semibold border-b-2 border-transparent transition-all flex items-center gap-2">
+      <button data-tab-target="tab-medications" class="desktop-tab-btn px-4 py-3 text-sm font-semibold border-b-2 border-transparent transition-all flex items-center gap-2">
         <svg class="w-4 h-4 stroke-current stroke-2 fill-none" viewBox="0 0 24 24">
           <path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"></path>
           <path d="m8.5 8.5 7 7"></path>
@@ -171,105 +201,104 @@
   <!-- ====================================================================== -->
   <!-- CONTENEDOR PRINCIPAL                                                   -->
   <!-- ====================================================================== -->
-  <main class="max-w-6xl mx-auto px-4 sm:px-6 py-6 safe-bottom-padding">
+  <main class="flex-1 max-w-6xl w-full mx-auto px-3.5 sm:px-6 py-4 sm:py-6 safe-content-padding space-y-5">
 
     <!-- ==================================================================== -->
     <!-- 1. TAB: DASHBOARD PRINCIPAL                                          -->
     <!-- ==================================================================== -->
-    <div id="tab-dashboard" class="tab-content space-y-6">
+    <div id="tab-dashboard" class="tab-content space-y-4 sm:space-y-6">
 
       <!-- FRASE FILOSÓFICA DIARIA -->
-      <section class="p-6 rounded-2xl bg-gradient-to-br from-slate-900 via-slate-900 to-indigo-950/40 border border-slate-800 shadow-xl relative overflow-hidden">
-        <div class="absolute -right-6 -bottom-6 w-36 h-36 bg-emerald-500/5 rounded-full blur-2xl pointer-events-none"></div>
-        <div class="flex items-center justify-between gap-3 mb-3">
-          <div class="flex items-center gap-2">
-            <span class="text-xs font-mono font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
-              <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
-              Sentencia Filosófica Diaria
+      <section class="p-4 sm:p-6 rounded-2xl bg-gradient-to-br from-slate-900 via-slate-900 to-indigo-950/40 border border-slate-800 shadow-xl relative overflow-hidden">
+        <div class="absolute -right-6 -bottom-6 w-32 h-32 bg-emerald-500/5 rounded-full blur-2xl pointer-events-none"></div>
+        <div class="flex items-center justify-between gap-2 mb-2">
+          <div class="flex items-center gap-1.5 flex-wrap">
+            <span class="text-[10px] sm:text-xs font-mono font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+              Sentencia Estoica
             </span>
-            <span id="quote-tag" class="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-zinc-800 text-zinc-300 border border-zinc-700/60"></span>
+            <span id="quote-tag" class="text-[9px] uppercase font-bold px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-300 border border-zinc-700/60"></span>
           </div>
-          <button id="btn-new-quote" class="text-xs text-slate-400 hover:text-emerald-300 flex items-center gap-1 transition-colors px-2.5 py-1 rounded-lg bg-slate-800/60 hover:bg-slate-800 border border-slate-700/60" title="Ver otra frase">
-            <svg class="w-3.5 h-3.5 stroke-current stroke-2 fill-none" viewBox="0 0 24 24">
+          <button id="btn-new-quote" class="text-[11px] text-slate-400 hover:text-emerald-300 flex items-center gap-1 transition-colors px-2 py-1 rounded-lg bg-slate-800/70 hover:bg-slate-800 border border-slate-700/60 touch-press" title="Ver otra frase">
+            <svg class="w-3 h-3 stroke-current stroke-2 fill-none" viewBox="0 0 24 24">
               <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path>
             </svg>
-            <span>Inspiración</span>
+            <span>Inspirar</span>
           </button>
         </div>
 
-        <blockquote class="text-base sm:text-lg font-medium text-slate-100 italic leading-relaxed mb-3">
-          <span id="quote-text">Cargando pensamiento...</span>
+        <blockquote class="text-sm sm:text-lg font-medium text-slate-100 italic leading-relaxed mb-2.5">
+          <span id="quote-text">Cargando pensamiento estoico...</span>
         </blockquote>
 
-        <div class="flex items-center justify-between text-xs text-slate-400">
+        <div class="flex items-center justify-between text-[11px] text-slate-400">
           <div>
             <span id="quote-author" class="font-bold text-slate-200"></span>
             <span id="quote-work" class="ml-1 text-slate-400"></span>
           </div>
-          <span class="text-[11px] text-slate-400">Disciplina • Templanza • Resistencia</span>
+          <span class="text-[10px] text-slate-400 hidden xs:inline">Disciplina • Constancia</span>
         </div>
       </section>
 
       <!-- BARRA DE PROGRESO DIARIO UNIFICADA -->
-      <section class="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 shadow-lg space-y-3">
+      <section class="p-4 sm:p-5 rounded-2xl bg-slate-900/80 border border-slate-800 shadow-lg space-y-2.5">
         <div class="flex items-center justify-between gap-2">
           <div>
-            <h2 class="text-sm font-bold uppercase tracking-wider text-slate-200">Progreso Diario Unificado</h2>
-            <p id="daily-progress-label" class="text-xs text-slate-400">Calculando cumplimiento del día...</p>
+            <h2 class="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-200">Progreso Diario</h2>
+            <p id="daily-progress-label" class="text-[11px] text-slate-400">Calculando cumplimiento...</p>
           </div>
-          <span id="daily-progress-percent" class="font-mono text-2xl font-black text-emerald-400">0%</span>
+          <span id="daily-progress-percent" class="font-mono text-xl sm:text-2xl font-black text-emerald-400">0%</span>
         </div>
 
-        <div class="w-full bg-slate-950 h-3.5 rounded-full overflow-hidden border border-slate-800/80 p-0.5">
+        <div class="w-full bg-slate-950 h-3 rounded-full overflow-hidden border border-slate-800/80 p-0.5">
           <div id="daily-progress-bar" class="h-full bg-gradient-to-r from-emerald-500 via-teal-400 to-cyan-400 rounded-full transition-all duration-500" style="width: 0%"></div>
         </div>
 
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 text-center text-[11px] text-slate-400 font-medium">
-          <div class="p-2 rounded-lg bg-slate-950/60 border border-slate-800/60">Hábitos (40%)</div>
-          <div class="p-2 rounded-lg bg-slate-950/60 border border-slate-800/60">Medicación (20%)</div>
-          <div class="p-2 rounded-lg bg-slate-950/60 border border-slate-800/60">Entrenamiento (20%)</div>
-          <div class="p-2 rounded-lg bg-slate-950/60 border border-slate-800/60">Hidratación (20%)</div>
+        <div class="grid grid-cols-4 gap-1.5 pt-1 text-center text-[10px] text-slate-400 font-medium">
+          <div class="p-1.5 rounded-lg bg-slate-950/60 border border-slate-800/60 truncate">Hábitos 40%</div>
+          <div class="p-1.5 rounded-lg bg-slate-950/60 border border-slate-800/60 truncate">Meds 20%</div>
+          <div class="p-1.5 rounded-lg bg-slate-950/60 border border-slate-800/60 truncate">Entreno 20%</div>
+          <div class="p-1.5 rounded-lg bg-slate-950/60 border border-slate-800/60 truncate">Agua 20%</div>
         </div>
       </section>
 
       <!-- MOTOR DE ALERTAS Y FEEDBACK INTERCONECTADO -->
-      <section class="space-y-3">
+      <section class="space-y-2.5">
         <div class="flex items-center justify-between">
-          <h3 class="text-sm font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+          <h3 class="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
             <svg class="w-4 h-4 text-amber-400 stroke-current stroke-2 fill-none" viewBox="0 0 24 24">
               <polygon points="12 2 2 22 22 22"></polygon>
               <line x1="12" y1="8" x2="12" y2="12"></line>
               <line x1="12" y1="16" x2="12.01" y2="16"></line>
             </svg>
-            <span>Alertas y Consejos Cruzados en Tiempo Real</span>
+            <span>Alertas & Feedback en Tiempo Real</span>
           </h3>
-          <span class="text-xs text-slate-400">Feedback algorítmico</span>
         </div>
 
-        <div id="alerts-container" class="space-y-2.5">
+        <div id="alerts-container" class="space-y-2">
           <!-- Inyectado por JS -->
         </div>
       </section>
 
       <!-- MISIONES DIARIAS (CHECKLIST) -->
-      <section class="p-5 rounded-2xl bg-slate-900/70 border border-slate-800 shadow-lg space-y-4">
-        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-800">
+      <section class="p-4 sm:p-5 rounded-2xl bg-slate-900/70 border border-slate-800 shadow-lg space-y-3">
+        <div class="flex items-center justify-between gap-2 pb-2 border-b border-slate-800">
           <div>
-            <h3 class="text-sm font-bold uppercase tracking-wider text-slate-200">Misiones Diarias (Rutina Fija)</h3>
-            <p class="text-xs text-slate-400">Pilares innegociables para el corredor de fondo y crecimiento personal</p>
+            <h3 class="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-200">Misiones Diarias (Rutina)</h3>
+            <p class="text-[11px] text-slate-400">Pilares innegociables de tu disciplina</p>
           </div>
-          <span class="text-xs text-slate-400 font-mono">Persistencia local por fecha</span>
+          <span class="text-[10px] text-slate-400 font-mono">Persistente</span>
         </div>
 
-        <div id="daily-habits-container" class="space-y-2.5">
+        <div id="daily-habits-container" class="space-y-2">
           <!-- Inyectado por JS -->
         </div>
 
         <!-- Agregar Hábito Personalizado -->
-        <div class="pt-2 flex items-center gap-2">
-          <input type="text" id="input-custom-habit" placeholder="Añadir misión personalizada extra..." class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-slate-200 placeholder:text-slate-400 focus:outline-none focus:border-emerald-500" />
-          <button id="btn-add-custom-habit" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-100 text-xs font-semibold rounded-xl border border-slate-700 transition-colors">
-            Añadir
+        <div class="pt-1 flex items-center gap-2">
+          <input type="text" id="input-custom-habit" placeholder="Añadir misión personalizada extra..." class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 placeholder:text-slate-400 focus:outline-none focus:border-emerald-500" />
+          <button id="btn-add-custom-habit" class="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-100 text-xs font-semibold rounded-xl border border-slate-700 transition-colors touch-press">
+            + Añadir
           </button>
         </div>
       </section>
@@ -279,84 +308,90 @@
     <!-- ==================================================================== -->
     <!-- 2. TAB: RUNNING & VDOT                                               -->
     <!-- ==================================================================== -->
-    <div id="tab-running" class="tab-content hidden space-y-6">
+    <div id="tab-running" class="tab-content hidden space-y-4 sm:space-y-6">
 
-      <!-- BANNER SUPERIOR RUNNING & OBJETIVOS -->
-      <section class="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 shadow-xl grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div class="p-3.5 rounded-xl bg-slate-950/70 border border-slate-800/80">
-          <span class="text-[11px] font-semibold text-slate-400 block uppercase tracking-wider">VDOT Actual</span>
-          <span id="running-vdot-current" class="font-mono text-2xl font-black text-emerald-400">51.5</span>
-          <span class="text-[10px] text-slate-400 block">Basado en 5K 19:26</span>
+      <!-- BANNER RUNNING EN CUADRÍCULA 2X2 MÓVIL -->
+      <section class="p-3.5 sm:p-5 rounded-2xl bg-slate-900/80 border border-slate-800 shadow-xl grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-4">
+        <div class="p-3 rounded-xl bg-slate-950/70 border border-slate-800/80">
+          <span class="text-[10px] font-semibold text-slate-400 block uppercase tracking-wider">VDOT Actual</span>
+          <span id="running-vdot-current" class="font-mono text-xl sm:text-2xl font-black text-emerald-400">51.5</span>
+          <span class="text-[9px] text-slate-400 block truncate">5K 19:26</span>
         </div>
 
-        <div class="p-3.5 rounded-xl bg-slate-950/70 border border-slate-800/80">
-          <span class="text-[11px] font-semibold text-slate-400 block uppercase tracking-wider">Meta 5K</span>
-          <span id="running-goal-5k" class="font-mono text-2xl font-black text-sky-400">17:59</span>
-          <span class="text-[10px] text-slate-400 block">Sub 18:00 (VDOT 56.4)</span>
+        <div class="p-3 rounded-xl bg-slate-950/70 border border-slate-800/80">
+          <span class="text-[10px] font-semibold text-slate-400 block uppercase tracking-wider">Meta 5K</span>
+          <span id="running-goal-5k" class="font-mono text-xl sm:text-2xl font-black text-sky-400">17:59</span>
+          <span class="text-[9px] text-slate-400 block truncate">Sub 18:00</span>
         </div>
 
-        <div class="p-3.5 rounded-xl bg-slate-950/70 border border-slate-800/80">
-          <span class="text-[11px] font-semibold text-slate-400 block uppercase tracking-wider">Meta 10K</span>
-          <span id="running-goal-10k" class="font-mono text-2xl font-black text-purple-400">36:59</span>
-          <span class="text-[10px] text-slate-400 block">Sub 37:00 (VDOT 56.8)</span>
+        <div class="p-3 rounded-xl bg-slate-950/70 border border-slate-800/80">
+          <span class="text-[10px] font-semibold text-slate-400 block uppercase tracking-wider">Meta 10K</span>
+          <span id="running-goal-10k" class="font-mono text-xl sm:text-2xl font-black text-purple-400">36:59</span>
+          <span class="text-[9px] text-slate-400 block truncate">Sub 37:00</span>
         </div>
 
-        <div class="p-3.5 rounded-xl bg-slate-950/70 border border-slate-800/80">
-          <span class="text-[11px] font-semibold text-slate-400 block uppercase tracking-wider">Métricas Actuales</span>
-          <span id="running-recent-5k" class="font-mono text-sm font-bold text-slate-200 block truncate">19:26 (PR 18:44)</span>
-          <span class="text-[10px] text-slate-400 block">1000m: 3:30 (PR 3:22)</span>
+        <div class="p-3 rounded-xl bg-slate-950/70 border border-slate-800/80">
+          <span class="text-[10px] font-semibold text-slate-400 block uppercase tracking-wider">Métricas Base</span>
+          <span id="running-recent-5k" class="font-mono text-xs font-bold text-slate-200 block truncate">19:26 (18:44 PR)</span>
+          <span class="text-[9px] text-slate-400 block truncate">1000m: 3:30 (3:22)</span>
         </div>
       </section>
 
-      <!-- ZONAS DE RITMO E INTENSIDAD -->
-      <section class="p-5 rounded-2xl bg-slate-900/70 border border-slate-800 shadow-lg space-y-3">
+      <!-- PLANIFICADOR AUTOMÁTICO SEMANAL CON SELECTOR DE DÍA MÓVIL -->
+      <section class="space-y-3">
+        <div class="flex items-center justify-between gap-1">
+          <div>
+            <h3 class="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-200">Plan Semanal (6 días)</h3>
+            <p class="text-[11px] text-slate-400">Adaptado dinámicamente a tu VDOT actual</p>
+          </div>
+          <span class="text-[10px] sm:text-xs font-mono font-bold text-emerald-400">50 km/semana</span>
+        </div>
+
+        <!-- Selector Rápido de Días (Mobile Tabs Pills) -->
+        <div id="weekly-day-pills-bar" class="flex items-center gap-1.5 overflow-x-auto pb-1.5 scrollbar-none">
+          <!-- Inyectado por JS: Lun, Mar, Mié, Jue, Vie, Sáb, Dom -->
+        </div>
+
+        <!-- Tarjeta del Día Seleccionado / Plan Detallado -->
+        <div id="running-weekly-plan-container" class="space-y-3">
+          <!-- Inyectado por JS -->
+        </div>
+      </section>
+
+      <!-- ZONAS DE RITMO E INTENSIDAD (JACK DANIELS) -->
+      <section class="p-4 sm:p-5 rounded-2xl bg-slate-900/70 border border-slate-800 shadow-lg space-y-2.5">
         <div class="flex items-center justify-between">
           <div>
-            <h3 class="text-sm font-bold uppercase tracking-wider text-slate-200">Zonas Fisiológicas de Ritmo (Fórmula Jack Daniels)</h3>
-            <p class="text-xs text-slate-400">Recalculadas de forma dinámica a medida que evolucionan tus tiempos</p>
+            <h3 class="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-200">Zonas de Ritmo (Fórmula VDOT)</h3>
+            <p class="text-[11px] text-slate-400">Ritmos teóricos exactos en min/km</p>
           </div>
-          <span class="text-xs px-2.5 py-1 rounded-md bg-emerald-950/60 text-emerald-400 font-mono text-[11px] border border-emerald-800/50">Auto-ajuste</span>
+          <span class="text-[10px] px-2 py-0.5 rounded bg-emerald-950/60 text-emerald-400 font-mono border border-emerald-800/50">Auto-ajuste</span>
         </div>
 
-        <div id="running-zones-container" class="space-y-2">
+        <div id="running-zones-container" class="space-y-1.5">
           <!-- Inyectado por JS -->
         </div>
       </section>
 
-      <!-- PLANIFICADOR AUTOMÁTICO SEMANAL (6 DÍAS) -->
-      <section class="space-y-3">
-        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
-          <div>
-            <h3 class="text-sm font-bold uppercase tracking-wider text-slate-200">Planificador Automático Semanal (6 días)</h3>
-            <p class="text-xs text-slate-400">Distribución de series, tempo, rodajes y tirada larga adaptada a tu VDOT actual</p>
-          </div>
-          <span class="text-xs font-mono font-bold text-slate-300">Volumen objetivo: ~50 km/semana</span>
-        </div>
-
-        <div id="running-weekly-plan-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
-          <!-- Inyectado por JS -->
-        </div>
-      </section>
-
-      <!-- REGISTRO DE ENTRENAMIENTOS REALES (FORMULARIO) -->
-      <section class="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 shadow-xl space-y-4">
+      <!-- REGISTRO DE ENTRENAMIENTOS REALES (FORMULARIO MÓVIL) -->
+      <section id="section-log-workout" class="p-4 sm:p-5 rounded-2xl bg-slate-900/80 border border-slate-800 shadow-xl space-y-3">
         <div class="pb-2 border-b border-slate-800 flex items-center justify-between">
           <div>
-            <h3 class="text-sm font-bold uppercase tracking-wider text-slate-200">Registrar Sesión Real de Carrera</h3>
-            <p class="text-xs text-slate-400">El algoritmo comparará tu sesión real contra lo planificado y reajustará tu VDOT</p>
+            <h3 class="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-200">Registrar Sesión Real</h3>
+            <p class="text-[11px] text-slate-400">Compara tu ejecución y adapta el VDOT progresivamente</p>
           </div>
-          <span class="text-xs text-emerald-400 font-mono">Feedback dinámico</span>
+          <span class="text-[10px] text-emerald-400 font-mono">Feedback</span>
         </div>
 
-        <form id="form-workout-log" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+        <form id="form-workout-log" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           <div>
-            <label class="block text-xs font-semibold text-slate-300 mb-1">Distancia Recorrida (km) *</label>
-            <input type="number" step="0.01" min="0.1" id="workout-distance" placeholder="Ej: 9.0" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 font-mono" />
+            <label class="block text-xs font-semibold text-slate-300 mb-1">Distancia (km) *</label>
+            <input type="number" step="0.01" min="0.1" id="workout-distance" placeholder="Ej: 9.0" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 font-mono" />
           </div>
 
           <div>
-            <label class="block text-xs font-semibold text-slate-300 mb-1">Tiempo Total (MM:SS o HH:MM:SS) *</label>
-            <input type="text" id="workout-time" placeholder="Ej: 38:40" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 font-mono" />
+            <label class="block text-xs font-semibold text-slate-300 mb-1">Tiempo (MM:SS) *</label>
+            <input type="text" id="workout-time" placeholder="Ej: 38:40" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 font-mono" />
           </div>
 
           <div>
@@ -372,53 +407,46 @@
           </div>
 
           <div>
-            <label class="block text-xs font-semibold text-slate-300 mb-1">Pulsaciones Promedio (FC bpm)</label>
-            <input type="number" id="workout-hr" placeholder="Ej: 164" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 font-mono" />
+            <label class="block text-xs font-semibold text-slate-300 mb-1">FC Promedio (bpm)</label>
+            <input type="number" id="workout-hr" placeholder="Ej: 164" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 font-mono" />
           </div>
 
           <div>
-            <label class="block text-xs font-semibold text-slate-300 mb-1">Zapatillas de la Rotación *</label>
+            <label class="block text-xs font-semibold text-slate-300 mb-1">Zapatillas *</label>
             <select id="workout-shoe-select" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-emerald-500">
               <!-- Inyectado por JS -->
             </select>
           </div>
 
           <div>
-            <label class="block text-xs font-semibold text-slate-300 mb-1">Sensaciones / Notas</label>
-            <input type="text" id="workout-notes" placeholder="Sensaciones en el cambio de ritmo, viento..." class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-emerald-500" />
+            <label class="block text-xs font-semibold text-slate-300 mb-1">Sensaciones</label>
+            <input type="text" id="workout-notes" placeholder="Sensaciones, viento, pulso..." class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-emerald-500" />
           </div>
 
-          <div class="sm:col-span-2 lg:col-span-3 pt-2">
-            <button type="submit" class="w-full py-2.5 px-4 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs rounded-xl shadow-lg shadow-emerald-950/40 transition-all flex items-center justify-center gap-2">
+          <div class="sm:col-span-2 lg:col-span-3 pt-1">
+            <button type="submit" class="w-full py-2.5 px-4 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs rounded-xl shadow-lg shadow-emerald-950/40 transition-all flex items-center justify-center gap-2 touch-press">
               <svg class="w-4 h-4 stroke-current stroke-2 fill-none" viewBox="0 0 24 24">
                 <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
                 <polyline points="17 21 17 13 7 13 7 21"></polyline>
-                <polyline points="7 3 7 8 15 8"></polyline>
               </svg>
-              <span>Guardar Sesión y Sincronizar Fisiología</span>
+              <span>Guardar Sesión & Sincronizar Fisiología</span>
             </button>
           </div>
         </form>
       </section>
 
-      <!-- ROTACIÓN DE ZAPATILLAS (TRACKER) -->
-      <section class="space-y-3">
-        <div class="flex items-center justify-between">
-          <div>
-            <h3 class="text-sm font-bold uppercase tracking-wider text-slate-200">Rotación de Zapatillas</h3>
-            <p class="text-xs text-slate-400">Kilometraje acumulado por par para evitar lesiones y optimizar amortiguación</p>
-          </div>
-        </div>
-
-        <div id="shoe-rotation-container" class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <!-- ROTACIÓN DE ZAPATILLAS -->
+      <section class="space-y-2.5">
+        <h3 class="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-200">Rotación de Zapatillas</h3>
+        <div id="shoe-rotation-container" class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
           <!-- Inyectado por JS -->
         </div>
       </section>
 
       <!-- HISTORIAL DE SESIONES -->
-      <section class="space-y-3">
-        <h3 class="text-sm font-bold uppercase tracking-wider text-slate-200">Historial de Sesiones Registradas</h3>
-        <div id="workout-logs-container" class="space-y-2.5">
+      <section class="space-y-2.5">
+        <h3 class="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-200">Historial de Carreras</h3>
+        <div id="workout-logs-container" class="space-y-2">
           <!-- Inyectado por JS -->
         </div>
       </section>
@@ -428,130 +456,122 @@
     <!-- ==================================================================== -->
     <!-- 3. TAB: NUTRICIÓN & TDEE                                              -->
     <!-- ==================================================================== -->
-    <div id="tab-nutrition" class="tab-content hidden space-y-6">
+    <div id="tab-nutrition" class="tab-content hidden space-y-4 sm:space-y-6">
 
-      <!-- MOTOR METABÓLICO (TMB & TDEE DINÁMICO) -->
-      <section class="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 shadow-xl space-y-4">
-        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-800">
+      <!-- MOTOR METABÓLICO EN TIEMPO REAL -->
+      <section class="p-4 sm:p-5 rounded-2xl bg-slate-900/80 border border-slate-800 shadow-xl space-y-3.5">
+        <div class="flex items-center justify-between pb-2 border-b border-slate-800">
           <div>
-            <h3 class="text-sm font-bold uppercase tracking-wider text-slate-200">Motor Metabólico en Tiempo Real</h3>
-            <p class="text-xs text-slate-400">Cálculo científico de TMB (Mifflin-St Jeor) + Gasto Dinámico por entrenamiento</p>
+            <h3 class="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-200">Motor Metabólico Dinámico</h3>
+            <p class="text-[11px] text-slate-400">TMB (Mifflin) + Gasto Carrera Hoy</p>
           </div>
-          <span class="text-xs font-mono text-emerald-400 font-semibold">24 años • 52 kg • 1.64 m</span>
+          <span class="text-[10px] font-mono text-emerald-400 font-semibold">52 kg • 24a</span>
         </div>
 
-        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 text-center">
-          <div class="p-3 rounded-xl bg-slate-950/70 border border-slate-800">
-            <span class="text-[10px] uppercase font-bold text-slate-400 block">TMB Basal</span>
-            <span id="nutrition-bmr" class="font-mono text-base font-bold text-slate-200">1430 kcal</span>
+        <div class="grid grid-cols-3 sm:grid-cols-6 gap-2 text-center">
+          <div class="p-2.5 rounded-xl bg-slate-950/70 border border-slate-800">
+            <span class="text-[9px] uppercase font-bold text-slate-400 block truncate">TMB Basal</span>
+            <span id="nutrition-bmr" class="font-mono text-xs sm:text-sm font-bold text-slate-200">1430 kcal</span>
           </div>
 
-          <div class="p-3 rounded-xl bg-slate-950/70 border border-slate-800">
-            <span class="text-[10px] uppercase font-bold text-slate-400 block">TDEE Sedentario</span>
-            <span id="nutrition-baseline-tdee" class="font-mono text-base font-bold text-slate-300">1716 kcal</span>
+          <div class="p-2.5 rounded-xl bg-slate-950/70 border border-slate-800">
+            <span class="text-[9px] uppercase font-bold text-slate-400 block truncate">TDEE Base</span>
+            <span id="nutrition-baseline-tdee" class="font-mono text-xs sm:text-sm font-bold text-slate-300">1716 kcal</span>
           </div>
 
-          <div class="p-3 rounded-xl bg-slate-950/70 border border-slate-800">
-            <span class="text-[10px] uppercase font-bold text-slate-400 block">Gasto Carrera Hoy</span>
-            <span id="nutrition-workout-burn" class="font-mono text-base font-bold text-emerald-400">+0 kcal</span>
+          <div class="p-2.5 rounded-xl bg-slate-950/70 border border-slate-800">
+            <span class="text-[9px] uppercase font-bold text-slate-400 block truncate">Gasto Carrera</span>
+            <span id="nutrition-workout-burn" class="font-mono text-xs sm:text-sm font-bold text-emerald-400">+0 kcal</span>
           </div>
 
-          <div class="p-3 rounded-xl bg-slate-950/70 border border-slate-800">
-            <span class="text-[10px] uppercase font-bold text-slate-400 block">TDEE Objetivo</span>
-            <span id="nutrition-target-tdee" class="font-mono text-base font-black text-sky-400">1716 kcal</span>
+          <div class="p-2.5 rounded-xl bg-slate-950/70 border border-slate-800">
+            <span class="text-[9px] uppercase font-bold text-slate-400 block truncate">TDEE Meta</span>
+            <span id="nutrition-target-tdee" class="font-mono text-xs sm:text-sm font-black text-sky-400">1716 kcal</span>
           </div>
 
-          <div class="p-3 rounded-xl bg-slate-950/70 border border-slate-800">
-            <span class="text-[10px] uppercase font-bold text-slate-400 block">Ingerido Hoy</span>
-            <span id="nutrition-consumed-calories" class="font-mono text-base font-bold text-slate-100">0 kcal</span>
+          <div class="p-2.5 rounded-xl bg-slate-950/70 border border-slate-800">
+            <span class="text-[9px] uppercase font-bold text-slate-400 block truncate">Consumido</span>
+            <span id="nutrition-consumed-calories" class="font-mono text-xs sm:text-sm font-bold text-slate-100">0 kcal</span>
           </div>
 
-          <div class="p-3 rounded-xl bg-slate-950/70 border border-slate-800">
-            <span class="text-[10px] uppercase font-bold text-slate-400 block">Balance Calórico</span>
-            <span id="nutrition-calorie-balance" class="font-mono text-base font-bold text-emerald-400">0 kcal</span>
+          <div class="p-2.5 rounded-xl bg-slate-950/70 border border-slate-800">
+            <span class="text-[9px] uppercase font-bold text-slate-400 block truncate">Balance</span>
+            <span id="nutrition-calorie-balance" class="font-mono text-xs sm:text-sm font-bold text-emerald-400">0 kcal</span>
           </div>
         </div>
 
-        <!-- Barra de Progreso Calórico -->
-        <div class="space-y-1.5 pt-1">
-          <div class="flex justify-between text-xs text-slate-400">
-            <span>Ingesta vs Gasto Metabólico Dinámico</span>
-            <span>Objetivo recomendado para corredor: Normocalórico o ligero superávit</span>
+        <!-- Barra Calórica -->
+        <div class="space-y-1">
+          <div class="flex justify-between text-[11px] text-slate-400">
+            <span>Ingesta Calórica vs Gasto Real</span>
+            <span>Objetivo: Normocalórico</span>
           </div>
-          <div class="w-full bg-slate-950 h-3 rounded-full overflow-hidden border border-slate-800">
+          <div class="w-full bg-slate-950 h-2.5 rounded-full overflow-hidden border border-slate-800">
             <div id="nutrition-calorie-bar" class="h-full bg-emerald-400 rounded-full transition-all duration-300" style="width: 0%"></div>
           </div>
         </div>
 
-        <!-- Resumen de Macronutrientes -->
-        <div class="grid grid-cols-3 gap-3 pt-1">
-          <div class="p-2.5 rounded-xl bg-slate-950/50 border border-slate-800 text-center">
-            <span class="text-[10px] font-bold text-amber-400 uppercase block">Carbohidratos</span>
-            <span id="nutrition-total-carbs" class="font-mono text-lg font-bold text-slate-100">0g</span>
-            <span class="text-[10px] text-slate-400 block">Energía para el glucógeno</span>
+        <!-- Macronutrientes -->
+        <div class="grid grid-cols-3 gap-2 pt-1">
+          <div class="p-2 rounded-xl bg-slate-950/50 border border-slate-800 text-center">
+            <span class="text-[9px] font-bold text-amber-400 uppercase block">Carbos</span>
+            <span id="nutrition-total-carbs" class="font-mono text-base font-bold text-slate-100">0g</span>
           </div>
-          <div class="p-2.5 rounded-xl bg-slate-950/50 border border-slate-800 text-center">
-            <span class="text-[10px] font-bold text-rose-400 uppercase block">Proteínas</span>
-            <span id="nutrition-total-protein" class="font-mono text-lg font-bold text-slate-100">0g</span>
-            <span class="text-[10px] text-slate-400 block">Reparación de fibras</span>
+          <div class="p-2 rounded-xl bg-slate-950/50 border border-slate-800 text-center">
+            <span class="text-[9px] font-bold text-rose-400 uppercase block">Proteína</span>
+            <span id="nutrition-total-protein" class="font-mono text-base font-bold text-slate-100">0g</span>
           </div>
-          <div class="p-2.5 rounded-xl bg-slate-950/50 border border-slate-800 text-center">
-            <span class="text-[10px] font-bold text-sky-400 uppercase block">Grasas</span>
-            <span id="nutrition-total-fat" class="font-mono text-lg font-bold text-slate-100">0g</span>
-            <span class="text-[10px] text-slate-400 block">Salud hormonal y mitocondria</span>
+          <div class="p-2 rounded-xl bg-slate-950/50 border border-slate-800 text-center">
+            <span class="text-[9px] font-bold text-sky-400 uppercase block">Grasas</span>
+            <span id="nutrition-total-fat" class="font-mono text-base font-bold text-slate-100">0g</span>
           </div>
         </div>
       </section>
 
-      <!-- SELECCIÓN RÁPIDA DE ALIMENTOS DB (JSON LOCAL) -->
-      <section class="p-5 rounded-2xl bg-slate-900/70 border border-slate-800 space-y-3">
+      <!-- SELECCIÓN RÁPIDA DE ALIMENTOS DB -->
+      <section class="p-4 sm:p-5 rounded-2xl bg-slate-900/70 border border-slate-800 space-y-2.5">
         <div class="flex items-center justify-between">
-          <h3 class="text-sm font-bold uppercase tracking-wider text-slate-200">Base de Datos de Alimentos Saludables para Runners</h3>
-          <span class="text-xs text-slate-400">1 clic para registrar</span>
+          <h3 class="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-200">Catálogo de Alimentos Runner</h3>
+          <span class="text-[10px] text-slate-400">1 tap para añadir</span>
         </div>
 
-        <div>
-          <select id="food-db-select" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-100 focus:outline-none focus:border-emerald-500">
-            <option value="">Selecciona un alimento de la base de datos para agregarlo...</option>
-          </select>
-        </div>
+        <select id="food-db-select" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-emerald-500">
+          <option value="">Selecciona un alimento de la base de datos...</option>
+        </select>
       </section>
 
-      <!-- ENTRADA MANUAL RÁPIDA DE ALIMENTOS -->
-      <section class="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 shadow-xl space-y-4">
-        <div class="pb-2 border-b border-slate-800">
-          <h3 class="text-sm font-bold uppercase tracking-wider text-slate-200">Ingreso Manual Rápido de Alimento / Comida</h3>
-          <p class="text-xs text-slate-400">Añade cualquier comida casera o snack con sus calorías y macronutrientes</p>
-        </div>
+      <!-- ENTRADA MANUAL RÁPIDA DE COMIDA -->
+      <section class="p-4 sm:p-5 rounded-2xl bg-slate-900/80 border border-slate-800 shadow-xl space-y-3">
+        <h3 class="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-200">Ingreso Manual Rápido</h3>
 
-        <form id="form-manual-meal" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
-          <div class="sm:col-span-2">
-            <label class="block text-xs font-semibold text-slate-300 mb-1">Nombre del alimento / comida *</label>
-            <input type="text" id="meal-name" placeholder="Ej: Plato de arroz con huevos y aguacate" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-emerald-500" />
+        <form id="form-manual-meal" class="grid grid-cols-2 sm:grid-cols-6 gap-2.5">
+          <div class="col-span-2">
+            <label class="block text-[10px] font-semibold text-slate-300 mb-0.5">Alimento / Plato *</label>
+            <input type="text" id="meal-name" placeholder="Ej: Arroz con atún y huevo" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-emerald-500" />
           </div>
 
           <div>
-            <label class="block text-xs font-semibold text-slate-300 mb-1">Calorías (kcal) *</label>
-            <input type="number" id="meal-calories" placeholder="Ej: 420" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 font-mono" />
+            <label class="block text-[10px] font-semibold text-slate-300 mb-0.5">Calorías (kcal) *</label>
+            <input type="number" id="meal-calories" placeholder="450" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 font-mono" />
           </div>
 
           <div>
-            <label class="block text-xs font-semibold text-slate-300 mb-1">Carbos (g)</label>
-            <input type="number" id="meal-carbs" placeholder="Ej: 55" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 font-mono" />
+            <label class="block text-[10px] font-semibold text-slate-300 mb-0.5">Carbos (g)</label>
+            <input type="number" id="meal-carbs" placeholder="60" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 font-mono" />
           </div>
 
           <div>
-            <label class="block text-xs font-semibold text-slate-300 mb-1">Proteína (g)</label>
-            <input type="number" id="meal-protein" placeholder="Ej: 22" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 font-mono" />
+            <label class="block text-[10px] font-semibold text-slate-300 mb-0.5">Proteína (g)</label>
+            <input type="number" id="meal-protein" placeholder="30" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 font-mono" />
           </div>
 
           <div>
-            <label class="block text-xs font-semibold text-slate-300 mb-1">Grasa (g)</label>
-            <input type="number" id="meal-fat" placeholder="Ej: 12" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 font-mono" />
+            <label class="block text-[10px] font-semibold text-slate-300 mb-0.5">Grasa (g)</label>
+            <input type="number" id="meal-fat" placeholder="10" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 font-mono" />
           </div>
 
-          <div class="sm:col-span-2">
-            <label class="block text-xs font-semibold text-slate-300 mb-1">Momento del día</label>
+          <div class="col-span-2">
+            <label class="block text-[10px] font-semibold text-slate-300 mb-0.5">Momento</label>
             <select id="meal-category" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-emerald-500">
               <option value="Desayuno">Desayuno</option>
               <option value="Almuerzo">Almuerzo</option>
@@ -561,18 +581,18 @@
             </select>
           </div>
 
-          <div class="sm:col-span-2 lg:col-span-4 flex items-end">
-            <button type="submit" class="w-full py-2.5 px-4 bg-slate-800 hover:bg-slate-700 text-slate-100 font-bold text-xs rounded-xl border border-slate-700 transition-colors">
+          <div class="col-span-2 sm:col-span-4 flex items-end">
+            <button type="submit" class="w-full py-2.5 px-4 bg-slate-800 hover:bg-slate-700 text-slate-100 font-bold text-xs rounded-xl border border-slate-700 transition-colors touch-press">
               + Registrar Comida
             </button>
           </div>
         </form>
       </section>
 
-      <!-- REGISTRO DE COMIDAS DEL DÍA -->
-      <section class="space-y-3">
-        <h3 class="text-sm font-bold uppercase tracking-wider text-slate-200">Comidas Registradas Hoy</h3>
-        <div id="today-meals-container" class="space-y-2">
+      <!-- LISTA DE COMIDAS REGISTRADAS HOY -->
+      <section class="space-y-2.5">
+        <h3 class="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-200">Comidas de Hoy</h3>
+        <div id="today-meals-container" class="space-y-1.5">
           <!-- Inyectado por JS -->
         </div>
       </section>
@@ -582,68 +602,67 @@
     <!-- ==================================================================== -->
     <!-- 4. TAB: HIDRATACIÓN                                                  -->
     <!-- ==================================================================== -->
-    <div id="tab-hydration" class="tab-content hidden space-y-6">
+    <div id="tab-hydration" class="tab-content hidden space-y-4 sm:space-y-6">
 
-      <section class="p-6 rounded-2xl bg-gradient-to-br from-slate-900 via-slate-900 to-cyan-950/40 border border-slate-800 shadow-xl space-y-5">
+      <section class="p-4 sm:p-6 rounded-2xl bg-gradient-to-br from-slate-900 via-slate-900 to-cyan-950/40 border border-slate-800 shadow-xl space-y-4">
         <div class="flex items-center justify-between">
           <div>
-            <h2 class="text-sm font-bold uppercase tracking-wider text-cyan-400 flex items-center gap-2">
+            <h2 class="text-xs sm:text-sm font-bold uppercase tracking-wider text-cyan-400 flex items-center gap-1.5">
               <svg class="w-4 h-4 stroke-current stroke-2 fill-none" viewBox="0 0 24 24">
                 <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path>
               </svg>
-              <span>Meta Dinámica de Hidratación</span>
+              <span>Hidratación Dinámica</span>
             </h2>
-            <p class="text-xs text-slate-400">Ajustada al alza según los km y la intensidad de tu sesión de carrera</p>
+            <p class="text-[11px] text-slate-400">Ajustada al alza según los km de tu sesión</p>
           </div>
-          <span id="hydration-percent-display" class="font-mono text-3xl font-black text-cyan-400">0%</span>
+          <span id="hydration-percent-display" class="font-mono text-2xl sm:text-3xl font-black text-cyan-400">0%</span>
         </div>
 
-        <!-- Indicador central de agua -->
-        <div class="p-6 rounded-2xl bg-slate-950/80 border border-slate-800 text-center space-y-3">
-          <div class="text-xs text-slate-400">Consumo Acumulado vs Meta de Hoy</div>
+        <!-- Indicador central de agua móvil -->
+        <div class="p-5 rounded-2xl bg-slate-950/80 border border-slate-800 text-center space-y-2.5">
+          <div class="text-[11px] text-slate-400">Consumo Acumulado Hoy</div>
           <div class="flex items-center justify-center gap-2">
-            <span id="hydration-current-display" class="font-mono text-4xl sm:text-5xl font-black text-white">0 ml</span>
-            <span class="text-xl text-slate-400 font-mono">/</span>
-            <span id="hydration-target-display" class="font-mono text-2xl text-cyan-400 font-bold">2080 ml</span>
+            <span id="hydration-current-display" class="font-mono text-3xl sm:text-5xl font-black text-white">0 ml</span>
+            <span class="text-lg text-slate-500 font-mono">/</span>
+            <span id="hydration-target-display" class="font-mono text-xl sm:text-2xl text-cyan-400 font-bold">2080 ml</span>
           </div>
 
-          <!-- Barra de llenado de agua -->
-          <div class="w-full bg-slate-900 h-4 rounded-full overflow-hidden border border-slate-800/80 p-0.5">
+          <div class="w-full bg-slate-900 h-3.5 rounded-full overflow-hidden border border-slate-800/80 p-0.5">
             <div id="hydration-bar" class="h-full bg-gradient-to-r from-blue-500 via-cyan-400 to-teal-300 rounded-full transition-all duration-300" style="width: 0%"></div>
           </div>
 
-          <div class="grid grid-cols-2 gap-3 text-xs text-slate-400 pt-2 border-t border-slate-900">
-            <div>Base Fisiológica (40ml/kg): <b id="hydration-base-display" class="text-slate-200 font-mono">2080 ml</b></div>
-            <div>Pérdida por Entrenamiento: <b id="hydration-sweat-display" class="text-cyan-400 font-mono">+0 ml</b></div>
+          <div class="grid grid-cols-2 gap-2 text-[11px] text-slate-400 pt-2 border-t border-slate-900">
+            <div>Base Fisiológica: <b id="hydration-base-display" class="text-slate-200 font-mono">2080 ml</b></div>
+            <div>Pérdida Entrenamiento: <b id="hydration-sweat-display" class="text-cyan-400 font-mono">+0 ml</b></div>
           </div>
         </div>
 
-        <!-- Botones rápidos de registro de agua -->
-        <div class="space-y-2">
-          <span class="text-xs font-semibold text-slate-300 block">Sumar Ingesta Rápida:</span>
-          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-            <button data-water-add="250" class="p-3 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 text-cyan-300 hover:text-white transition-all text-xs font-bold flex flex-col items-center gap-1 shadow-sm">
+        <!-- Botones Grandes de Pulsación Rápida con Haptic Feedback -->
+        <div class="space-y-1.5">
+          <span class="text-[11px] font-semibold text-slate-300 block">Sumar Ingesta Rápida:</span>
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <button data-water-add="250" class="p-3 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 text-cyan-300 hover:text-white transition-all text-xs font-bold flex flex-col items-center gap-1 shadow-sm touch-press">
               <svg class="w-5 h-5 stroke-current stroke-2 fill-none" viewBox="0 0 24 24">
                 <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path>
               </svg>
               <span>+250 ml (Vaso)</span>
             </button>
 
-            <button data-water-add="500" class="p-3 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 text-cyan-300 hover:text-white transition-all text-xs font-bold flex flex-col items-center gap-1 shadow-sm">
+            <button data-water-add="500" class="p-3 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 text-cyan-300 hover:text-white transition-all text-xs font-bold flex flex-col items-center gap-1 shadow-sm touch-press">
               <svg class="w-5 h-5 stroke-current stroke-2 fill-none" viewBox="0 0 24 24">
                 <path d="M6 2h12v20H6z"></path>
               </svg>
               <span>+500 ml (Botella)</span>
             </button>
 
-            <button data-water-add="750" class="p-3 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 text-cyan-300 hover:text-white transition-all text-xs font-bold flex flex-col items-center gap-1 shadow-sm">
+            <button data-water-add="750" class="p-3 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 text-cyan-300 hover:text-white transition-all text-xs font-bold flex flex-col items-center gap-1 shadow-sm touch-press">
               <svg class="w-5 h-5 stroke-current stroke-2 fill-none" viewBox="0 0 24 24">
                 <path d="M5 2h14v2H5zm2 4h10v16H7z"></path>
               </svg>
               <span>+750 ml (Bidón)</span>
             </button>
 
-            <button data-water-add="-250" class="p-3 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-rose-400 transition-all text-xs font-bold flex flex-col items-center gap-1 shadow-sm">
+            <button data-water-add="-250" class="p-3 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-rose-400 transition-all text-xs font-bold flex flex-col items-center gap-1 shadow-sm touch-press">
               <svg class="w-5 h-5 stroke-current stroke-2 fill-none" viewBox="0 0 24 24">
                 <line x1="5" y1="12" x2="19" y2="12"></line>
               </svg>
@@ -652,16 +671,16 @@
           </div>
         </div>
 
-        <!-- Regla de las 4:00 PM explicada -->
-        <div class="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800/60 text-xs text-slate-400 space-y-1">
+        <!-- Alerta de 4:00 PM explicada -->
+        <div class="p-3 rounded-xl bg-slate-950/60 border border-slate-800/60 text-[11px] text-slate-400 space-y-1">
           <div class="font-bold text-slate-300 flex items-center gap-1.5">
             <svg class="w-3.5 h-3.5 text-amber-400 fill-none stroke-current stroke-2" viewBox="0 0 24 24">
               <circle cx="12" cy="12" r="10"></circle>
               <polyline points="12 6 12 12 16 14"></polyline>
             </svg>
-            <span>Protocolo de Hidratación a las 4:00 PM</span>
+            <span>Regla de las 4:00 PM</span>
           </div>
-          <p class="leading-relaxed">El motor supervisa activamente que alcances al menos el 70% de tu hidratación dinámica antes de las 16:00 horas. Una deshidratación vespertina eleva la viscosidad sanguínea y afecta la recuperación del corredor.</p>
+          <p>Superadas las 16:00 horas, el motor verifica que lleves al menos el 70% de tu hidratación para optimizar el ritmo cardíaco en reposo.</p>
         </div>
       </section>
 
@@ -670,61 +689,57 @@
     <!-- ==================================================================== -->
     <!-- 5. TAB: MEDICAMENTOS (CRUD)                                          -->
     <!-- ==================================================================== -->
-    <div id="tab-medications" class="tab-content hidden space-y-6">
+    <div id="tab-medications" class="tab-content hidden space-y-4 sm:space-y-6">
 
-      <!-- FORMULARIO AGREGAR MEDICAMENTO / SUPLEMENTO -->
-      <section class="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 shadow-xl space-y-4">
+      <!-- FORMULARIO AGREGAR MEDICAMENTO -->
+      <section class="p-4 sm:p-5 rounded-2xl bg-slate-900/80 border border-slate-800 shadow-xl space-y-3">
         <div class="pb-2 border-b border-slate-800">
-          <h3 class="text-sm font-bold uppercase tracking-wider text-slate-200">Gestión de Medicamentos & Suplementos (CRUD)</h3>
-          <p class="text-xs text-slate-400">Organiza tus tomas diarias para sincronizarlas con tu entrenamiento y nutrición</p>
+          <h3 class="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-200">Medicamentos & Suplementos (CRUD)</h3>
+          <p class="text-[11px] text-slate-400">Organiza tus tomas del día para optimizar la recuperación</p>
         </div>
 
-        <form id="form-add-medication" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+        <form id="form-add-medication" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
           <div>
-            <label class="block text-xs font-semibold text-slate-300 mb-1">Nombre *</label>
+            <label class="block text-[10px] font-semibold text-slate-300 mb-0.5">Nombre *</label>
             <input type="text" id="med-name" placeholder="Ej: Citrato de Magnesio" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-emerald-500" />
           </div>
 
           <div>
-            <label class="block text-xs font-semibold text-slate-300 mb-1">Dosis *</label>
-            <input type="text" id="med-dose" placeholder="Ej: 350 mg / 1 comprimido" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 font-mono" />
+            <label class="block text-[10px] font-semibold text-slate-300 mb-0.5">Dosis *</label>
+            <input type="text" id="med-dose" placeholder="Ej: 350 mg / 1 cápsula" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 font-mono" />
           </div>
 
           <div>
-            <label class="block text-xs font-semibold text-slate-300 mb-1">Hora Programada (HH:MM)</label>
-            <input type="time" id="med-time" value="07:00" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-emerald-500 font-mono" />
+            <label class="block text-[10px] font-semibold text-slate-300 mb-0.5">Hora (HH:MM)</label>
+            <input type="time" id="med-time" value="07:00" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 font-mono" />
           </div>
 
           <div>
-            <label class="block text-xs font-semibold text-slate-300 mb-1">Frecuencia</label>
-            <input type="text" id="med-frequency" placeholder="Ej: Diario / Cada 12h" value="Diario" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-emerald-500" />
+            <label class="block text-[10px] font-semibold text-slate-300 mb-0.5">Frecuencia</label>
+            <input type="text" id="med-frequency" value="Diario" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100" />
           </div>
 
           <div class="sm:col-span-2 lg:col-span-3">
-            <label class="block text-xs font-semibold text-slate-300 mb-1">Instrucciones / Notas</label>
-            <input type="text" id="med-notes" placeholder="Ej: Tomar con comida o antes de dormir..." class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-emerald-500" />
+            <label class="block text-[10px] font-semibold text-slate-300 mb-0.5">Notas / Instrucciones</label>
+            <input type="text" id="med-notes" placeholder="Ej: Tomar con la cena o antes de dormir" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100" />
           </div>
 
           <div class="flex items-end">
-            <button type="submit" class="w-full py-2.5 px-4 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs rounded-xl shadow-lg transition-colors flex items-center justify-center gap-1.5">
+            <button type="submit" class="w-full py-2 px-4 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs rounded-xl shadow-lg transition-colors flex items-center justify-center gap-1.5 touch-press">
               <svg class="w-4 h-4 stroke-current stroke-2 fill-none" viewBox="0 0 24 24">
                 <line x1="12" y1="5" x2="12" y2="19"></line>
                 <line x1="5" y1="12" x2="19" y2="12"></line>
               </svg>
-              <span>+ Guardar Medicamento</span>
+              <span>+ Guardar</span>
             </button>
           </div>
         </form>
       </section>
 
-      <!-- LISTA VISUAL DE MEDICAMENTOS DEL DÍA -->
-      <section class="space-y-3">
-        <div class="flex items-center justify-between">
-          <h3 class="text-sm font-bold uppercase tracking-wider text-slate-200">Medicamentos y Suplementos Programados</h3>
-          <span class="text-xs text-slate-400">Marca las casillas al tomarlos</span>
-        </div>
-
-        <div id="medications-container" class="space-y-2.5">
+      <!-- LISTA DE MEDICAMENTOS -->
+      <section class="space-y-2.5">
+        <h3 class="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-200">Tomas Programadas</h3>
+        <div id="medications-container" class="space-y-2">
           <!-- Inyectado por JS -->
         </div>
       </section>
@@ -734,58 +749,78 @@
   </main>
 
   <!-- ====================================================================== -->
-  <!-- BARRA DE NAVEGACIÓN INFERIOR (MÓVIL / PWA)                             -->
+  <!-- BARRA DE NAVEGACIÓN INFERIOR (MÓVIL / PWA CON SAFE AREA)               -->
   <!-- ====================================================================== -->
-  <nav class="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-slate-950/95 backdrop-blur-lg border-t border-slate-800/80 px-2 py-2 flex items-center justify-around shadow-2xl">
-    <button data-tab-target="tab-dashboard" class="flex flex-col items-center gap-1 py-1 px-2.5 rounded-lg text-slate-400 transition-colors">
-      <svg class="w-5 h-5 stroke-current stroke-2 fill-none" viewBox="0 0 24 24">
-        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
-        <polyline points="9 22 9 12 15 12 15 22"></polyline>
-      </svg>
-      <span class="text-[10px] font-semibold">Inicio</span>
+  <nav class="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-slate-950/95 backdrop-blur-lg border-t border-slate-800/80 px-2 py-1.5 flex items-center justify-around shadow-2xl safe-bottom-nav">
+    
+    <button data-tab-target="tab-dashboard" class="tab-btn flex-1 flex flex-col items-center gap-0.5 py-1 px-1 rounded-xl text-slate-400 transition-all touch-press active">
+      <div class="tab-icon transition-transform">
+        <svg class="w-5 h-5 stroke-current stroke-2 fill-none" viewBox="0 0 24 24">
+          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+          <polyline points="9 22 9 12 15 12 15 22"></polyline>
+        </svg>
+      </div>
+      <span class="text-[10px] font-semibold tracking-tight">Inicio</span>
+      <span class="tab-dot w-1 h-1 rounded-full bg-emerald-400 opacity-0 transition-opacity"></span>
     </button>
 
-    <button data-tab-target="tab-running" class="flex flex-col items-center gap-1 py-1 px-2.5 rounded-lg text-slate-400 transition-colors">
-      <svg class="w-5 h-5 stroke-current stroke-2 fill-none" viewBox="0 0 24 24">
-        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
-      </svg>
-      <span class="text-[10px] font-semibold">Running</span>
+    <button data-tab-target="tab-running" class="tab-btn flex-1 flex flex-col items-center gap-0.5 py-1 px-1 rounded-xl text-slate-400 transition-all touch-press">
+      <div class="tab-icon transition-transform">
+        <svg class="w-5 h-5 stroke-current stroke-2 fill-none" viewBox="0 0 24 24">
+          <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+        </svg>
+      </div>
+      <span class="text-[10px] font-semibold tracking-tight">Running</span>
+      <span class="tab-dot w-1 h-1 rounded-full bg-emerald-400 opacity-0 transition-opacity"></span>
     </button>
 
-    <button data-tab-target="tab-nutrition" class="flex flex-col items-center gap-1 py-1 px-2.5 rounded-lg text-slate-400 transition-colors">
-      <svg class="w-5 h-5 stroke-current stroke-2 fill-none" viewBox="0 0 24 24">
-        <path d="M18 8h1a4 4 0 0 1 0 8h-1"></path>
-        <path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"></path>
-      </svg>
-      <span class="text-[10px] font-semibold">Nutrición</span>
+    <button data-tab-target="tab-nutrition" class="tab-btn flex-1 flex flex-col items-center gap-0.5 py-1 px-1 rounded-xl text-slate-400 transition-all touch-press">
+      <div class="tab-icon transition-transform">
+        <svg class="w-5 h-5 stroke-current stroke-2 fill-none" viewBox="0 0 24 24">
+          <path d="M18 8h1a4 4 0 0 1 0 8h-1"></path>
+          <path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"></path>
+        </svg>
+      </div>
+      <span class="text-[10px] font-semibold tracking-tight">Nutrición</span>
+      <span class="tab-dot w-1 h-1 rounded-full bg-emerald-400 opacity-0 transition-opacity"></span>
     </button>
 
-    <button data-tab-target="tab-hydration" class="flex flex-col items-center gap-1 py-1 px-2.5 rounded-lg text-slate-400 transition-colors">
-      <svg class="w-5 h-5 stroke-current stroke-2 fill-none" viewBox="0 0 24 24">
-        <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path>
-      </svg>
-      <span class="text-[10px] font-semibold">Agua</span>
+    <button data-tab-target="tab-hydration" class="tab-btn flex-1 flex flex-col items-center gap-0.5 py-1 px-1 rounded-xl text-slate-400 transition-all touch-press">
+      <div class="tab-icon transition-transform">
+        <svg class="w-5 h-5 stroke-current stroke-2 fill-none" viewBox="0 0 24 24">
+          <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path>
+        </svg>
+      </div>
+      <span class="text-[10px] font-semibold tracking-tight">Agua</span>
+      <span class="tab-dot w-1 h-1 rounded-full bg-emerald-400 opacity-0 transition-opacity"></span>
     </button>
 
-    <button data-tab-target="tab-medications" class="flex flex-col items-center gap-1 py-1 px-2.5 rounded-lg text-slate-400 transition-colors">
-      <svg class="w-5 h-5 stroke-current stroke-2 fill-none" viewBox="0 0 24 24">
-        <path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"></path>
-      </svg>
-      <span class="text-[10px] font-semibold">Meds</span>
+    <button data-tab-target="tab-medications" class="tab-btn flex-1 flex flex-col items-center gap-0.5 py-1 px-1 rounded-xl text-slate-400 transition-all touch-press">
+      <div class="tab-icon transition-transform">
+        <svg class="w-5 h-5 stroke-current stroke-2 fill-none" viewBox="0 0 24 24">
+          <path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"></path>
+        </svg>
+      </div>
+      <span class="text-[10px] font-semibold tracking-tight">Meds</span>
+      <span class="tab-dot w-1 h-1 rounded-full bg-emerald-400 opacity-0 transition-opacity"></span>
     </button>
   </nav>
 
   <!-- ====================================================================== -->
-  <!-- MODAL DE CONFIGURACIÓN DE PERFIL Y OBJETIVOS                          -->
+  <!-- MODAL / BOTTOM SHEET DE PERFIL Y METAS (MÓVIL SLIDE-UP)                -->
   <!-- ====================================================================== -->
-  <div id="profile-modal" class="hidden fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
-    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-6 shadow-2xl space-y-4">
-      <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+  <div id="profile-modal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-t-3xl sm:rounded-2xl max-w-lg w-full max-h-[85vh] overflow-y-auto p-5 sm:p-6 shadow-2xl space-y-4">
+      
+      <!-- Drag handle indicator for mobile sheet -->
+      <div class="w-12 h-1.5 rounded-full bg-slate-700 mx-auto sm:hidden"></div>
+
+      <div class="flex items-center justify-between pb-2 border-b border-slate-800">
         <div>
-          <h3 class="text-base font-bold text-white">Perfil Fisiológico & Objetivos</h3>
-          <p class="text-xs text-slate-400">Actualiza tus métricas para recalcular VDOT, ritmos y TMB</p>
+          <h3 class="text-sm sm:text-base font-bold text-white">Perfil Fisiológico & Metas</h3>
+          <p class="text-[11px] text-slate-400">Recalcula VDOT, ritmos y TMB dinámicamente</p>
         </div>
-        <button id="btn-close-profile" class="text-slate-400 hover:text-white p-1 rounded-lg">
+        <button id="btn-close-profile" class="text-slate-400 hover:text-white p-1 rounded-lg touch-press">
           <svg class="w-5 h-5 stroke-current stroke-2 fill-none" viewBox="0 0 24 24">
             <line x1="18" y1="6" x2="6" y2="18"></line>
             <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -793,57 +828,57 @@
         </button>
       </div>
 
-      <form id="form-user-profile" class="space-y-4">
-        <div class="grid grid-cols-3 gap-3">
+      <form id="form-user-profile" class="space-y-3.5">
+        <div class="grid grid-cols-3 gap-2.5">
           <div>
-            <label class="block text-xs font-semibold text-slate-300 mb-1">Edad (años)</label>
-            <input type="number" id="profile-age" value="24" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 font-mono" />
+            <label class="block text-[10px] font-semibold text-slate-300 mb-0.5">Edad</label>
+            <input type="number" id="profile-age" value="24" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-slate-100 font-mono" />
           </div>
           <div>
-            <label class="block text-xs font-semibold text-slate-300 mb-1">Peso (kg)</label>
-            <input type="number" step="0.5" id="profile-weight" value="52" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 font-mono" />
+            <label class="block text-[10px] font-semibold text-slate-300 mb-0.5">Peso (kg)</label>
+            <input type="number" step="0.5" id="profile-weight" value="52" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-slate-100 font-mono" />
           </div>
           <div>
-            <label class="block text-xs font-semibold text-slate-300 mb-1">Altura (cm)</label>
-            <input type="number" id="profile-height" value="164" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 font-mono" />
+            <label class="block text-[10px] font-semibold text-slate-300 mb-0.5">Altura (cm)</label>
+            <input type="number" id="profile-height" value="164" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-slate-100 font-mono" />
           </div>
         </div>
 
-        <div class="border-t border-slate-800 pt-3">
-          <h4 class="text-xs font-bold uppercase tracking-wider text-emerald-400 mb-2">Métricas Actuales</h4>
-          <div class="grid grid-cols-2 gap-3">
+        <div class="border-t border-slate-800 pt-2.5">
+          <h4 class="text-[11px] font-bold uppercase tracking-wider text-emerald-400 mb-1.5">Métricas Actuales</h4>
+          <div class="grid grid-cols-2 gap-2.5">
             <div>
-              <label class="block text-xs text-slate-300 mb-1">1000m Reciente</label>
-              <input type="text" id="profile-1000m-recent" value="3:30" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 font-mono" />
+              <label class="block text-[10px] text-slate-300 mb-0.5">1000m Reciente</label>
+              <input type="text" id="profile-1000m-recent" value="3:30" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-slate-100 font-mono" />
             </div>
             <div>
-              <label class="block text-xs text-slate-300 mb-1">5K Reciente (Base VDOT)</label>
-              <input type="text" id="profile-5k-recent" value="19:26" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 font-mono" />
+              <label class="block text-[10px] text-slate-300 mb-0.5">5K Reciente (Base)</label>
+              <input type="text" id="profile-5k-recent" value="19:26" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-slate-100 font-mono" />
             </div>
             <div class="col-span-2">
-              <label class="block text-xs text-slate-300 mb-1">5K PR (Récord Personal)</label>
-              <input type="text" id="profile-5k-pr" value="18:44" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 font-mono" />
+              <label class="block text-[10px] text-slate-300 mb-0.5">5K Récord Personal (PR)</label>
+              <input type="text" id="profile-5k-pr" value="18:44" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-slate-100 font-mono" />
             </div>
           </div>
         </div>
 
-        <div class="border-t border-slate-800 pt-3">
-          <h4 class="text-xs font-bold uppercase tracking-wider text-sky-400 mb-2">Gestión de Objetivos</h4>
-          <div class="grid grid-cols-2 gap-3">
+        <div class="border-t border-slate-800 pt-2.5">
+          <h4 class="text-[11px] font-bold uppercase tracking-wider text-sky-400 mb-1.5">Metas</h4>
+          <div class="grid grid-cols-2 gap-2.5">
             <div>
-              <label class="block text-xs text-slate-300 mb-1">Meta 5K (Sub 18:00)</label>
-              <input type="text" id="profile-5k-goal" value="17:59" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 font-mono" />
+              <label class="block text-[10px] text-slate-300 mb-0.5">Meta 5K (Sub 18)</label>
+              <input type="text" id="profile-5k-goal" value="17:59" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-slate-100 font-mono" />
             </div>
             <div>
-              <label class="block text-xs text-slate-300 mb-1">Meta 10K (Sub 37:00)</label>
-              <input type="text" id="profile-10k-goal" value="36:59" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 font-mono" />
+              <label class="block text-[10px] text-slate-300 mb-0.5">Meta 10K (Sub 37)</label>
+              <input type="text" id="profile-10k-goal" value="36:59" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-slate-100 font-mono" />
             </div>
           </div>
         </div>
 
         <div class="pt-2">
-          <button type="submit" class="w-full py-2.5 px-4 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs rounded-xl shadow-lg transition-colors">
-            Guardar Cambios & Recalcular Fisiología
+          <button type="submit" class="w-full py-2.5 px-4 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs rounded-xl shadow-lg transition-colors touch-press">
+            Guardar Cambios & Recalcular Ritmos
           </button>
         </div>
       </form>

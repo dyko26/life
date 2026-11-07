@@ -2,9 +2,9 @@
  * ============================================================================
  * ATLETA ZEN - PWA PERSONAL DE SALUD, RUNNING & NUTRICIÓN
  * ============================================================================
- * Arquitectura: Vanilla JavaScript modular, Reactividad con localStorage
- * Cálculos: Jack Daniels VDOT, Mifflin-St Jeor TMB/TDEE dinámico,
- *           Pérdida de líquidos por volumen/intensidad, Motor de alertas cruzadas.
+ * Optimizado para Celulares / Mobile-First PWA (iOS & Android)
+ * Algoritmos: Jack Daniels VDOT, Mifflin-St Jeor TMB/TDEE dinámico,
+ *             Pérdida de líquidos por volumen/intensidad, Motor de alertas cruzadas.
  */
 
 // ============================================================================
@@ -158,7 +158,7 @@ const DEFAULT_USER_PROFILE = {
   weight: 52,        // kg
   height: 164,       // cm
   gender: "male",
-  activityLevel: 1.2, // Base sin entrenar (NEAT de estudio/trabajo sedentario a ligero)
+  activityLevel: 1.2, // Base sin entrenar (NEAT ligero)
   trainingDaysPerWeek: 6,
   metrics: {
     m1000Recent: "3:30",
@@ -215,13 +215,21 @@ const DEFAULT_MEDICATIONS = [
   }
 ];
 
+// Función para retroalimentación háptica en celulares
+function triggerHaptic(duration = 10) {
+  if (typeof window !== 'undefined' && window.navigator && window.navigator.vibrate) {
+    try {
+      window.navigator.vibrate(duration);
+    } catch (e) {
+      // Ignorar si no está soportado en iOS
+    }
+  }
+}
+
 // ============================================================================
 // 2. ALGORITMOS DE RUNNING & FISIOLOGÍA (JACK DANIELS VDOT)
 // ============================================================================
 
-/**
- * Convierte cadena "MM:SS" a segundos totales.
- */
 function timeStrToSeconds(str) {
   if (!str) return 0;
   const parts = str.split(':').map(Number);
@@ -233,9 +241,6 @@ function timeStrToSeconds(str) {
   return Number(str) || 0;
 }
 
-/**
- * Convierte segundos a formato "MM:SS"
- */
 function secondsToTimeStr(totalSeconds) {
   if (isNaN(totalSeconds) || totalSeconds <= 0) return "--:--";
   const rounded = Math.round(totalSeconds);
@@ -244,29 +249,10 @@ function secondsToTimeStr(totalSeconds) {
   return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
 }
 
-/**
- * Convierte velocidad (m/min) a ritmo por km (minutos con decimales o MM:SS)
- */
-function velocityToPaceStr(metersPerMin) {
-  if (!metersPerMin || metersPerMin <= 0) return "--:--";
-  const paceMinutes = 1000 / metersPerMin;
-  const totalSeconds = paceMinutes * 60;
-  return secondsToTimeStr(totalSeconds);
-}
-
-/**
- * Calcula VDOT exacto según la fórmula de Jack Daniels:
- * VO2 = -4.60 + 0.182258 * v + 0.000104 * v^2
- * %VO2max = 0.8 + 0.1894393 * e^(-0.012778 * t) + 0.2989558 * e^(-0.1932605 * t)
- * VDOT = VO2 / %VO2max
- * 
- * @param {number} distanceMeters - Distancia en metros (ej. 5000)
- * @param {number} timeSeconds - Tiempo en segundos (ej. 1166 para 19:26)
- */
 function calculateVDOT(distanceMeters, timeSeconds) {
   if (!distanceMeters || !timeSeconds || timeSeconds <= 0) return 51.5;
   const timeMinutes = timeSeconds / 60;
-  const v = distanceMeters / timeMinutes; // metros por minuto
+  const v = distanceMeters / timeMinutes; // m/min
 
   const vo2Cost = -4.60 + (0.182258 * v) + (0.000104 * Math.pow(v, 2));
   const percentVO2Max = 0.8 + 
@@ -278,11 +264,6 @@ function calculateVDOT(distanceMeters, timeSeconds) {
   return parseFloat(vdot.toFixed(2));
 }
 
-/**
- * A partir de un VDOT y una intensidad fisiológica (% de VO2max),
- * resuelve la ecuación cuadrática inversa de Daniels para obtener el ritmo (min/km).
- * 0.000104*v^2 + 0.182258*v - (4.60 + VO2) = 0
- */
 function getPaceFromVDOTIntensity(vdot, intensityFraction) {
   const targetVO2 = vdot * intensityFraction;
   const a = 0.000104;
@@ -290,34 +271,26 @@ function getPaceFromVDOTIntensity(vdot, intensityFraction) {
   const c = -(4.60 + targetVO2);
 
   const discriminant = Math.pow(b, 2) - (4 * a * c);
-  if (discriminant < 0) return 300; // fallback 5:00/km
+  if (discriminant < 0) return 300;
 
-  const v = (-b + Math.sqrt(discriminant)) / (2 * a); // m/min
+  const v = (-b + Math.sqrt(discriminant)) / (2 * a);
   const secondsPerKm = (1000 / v) * 60;
   return secondsPerKm;
 }
 
-/**
- * Calcula el rango de zonas de entrenamiento (E, M, T, I, R) a partir del VDOT actual
- */
 function calculatePaceZones(vdot) {
-  // Easy (E): 62% - 71% VO2max
   const eFastSec = getPaceFromVDOTIntensity(vdot, 0.71);
   const eSlowSec = getPaceFromVDOTIntensity(vdot, 0.62);
 
-  // Marathon (M): 75% - 80% VO2max
   const mFastSec = getPaceFromVDOTIntensity(vdot, 0.80);
   const mSlowSec = getPaceFromVDOTIntensity(vdot, 0.75);
 
-  // Threshold / Tempo (T): 86% - 88% VO2max
   const tFastSec = getPaceFromVDOTIntensity(vdot, 0.88);
   const tSlowSec = getPaceFromVDOTIntensity(vdot, 0.86);
 
-  // Interval / VO2max (I): 95% - 98% VO2max
   const iFastSec = getPaceFromVDOTIntensity(vdot, 0.98);
   const iSlowSec = getPaceFromVDOTIntensity(vdot, 0.95);
 
-  // Repetition (R): 105% - 110% VO2max (Velocidad y economía)
   const rFastSec = getPaceFromVDOTIntensity(vdot, 1.10);
   const rSlowSec = getPaceFromVDOTIntensity(vdot, 1.05);
 
@@ -325,61 +298,48 @@ function calculatePaceZones(vdot) {
     E: {
       name: "Easy / Recuperación (E)",
       rangeStr: `${secondsToTimeStr(eFastSec)} - ${secondsToTimeStr(eSlowSec)} /km`,
-      fastSec: eFastSec,
-      slowSec: eSlowSec,
       hrRange: "65 - 75% FCmáx",
-      purpose: "Adaptaciones mitocondriales, capilarización periférica y recuperación activa.",
+      purpose: "Adaptaciones mitocondriales y volumen seguro.",
       color: "emerald"
     },
     M: {
       name: "Maratón / Rodaje Vivo (M)",
       rangeStr: `${secondsToTimeStr(mFastSec)} - ${secondsToTimeStr(mSlowSec)} /km`,
-      fastSec: mFastSec,
-      slowSec: mSlowSec,
       hrRange: "75 - 84% FCmáx",
-      purpose: "Eficiencia de sustratos grasos, ritmo de crucero y tiradas progresivas.",
+      purpose: "Ritmo de crucero y tiradas progresivas.",
       color: "sky"
     },
     T: {
       name: "Umbral de Lactato / Tempo (T)",
       rangeStr: `${secondsToTimeStr(tFastSec)} - ${secondsToTimeStr(tSlowSec)} /km`,
-      fastSec: tFastSec,
-      slowSec: tSlowSec,
       hrRange: "86 - 88% FCmáx",
-      purpose: "Retrasar el acúmulo de lactato; clave absoluta para romper 18:00 en 5K y 37:00 en 10K.",
+      purpose: "Clave para 5K sub 18:00 y 10K sub 37:00.",
       color: "amber"
     },
     I: {
       name: "Series VO2max / Intervalos (I)",
       rangeStr: `${secondsToTimeStr(iFastSec)} - ${secondsToTimeStr(iSlowSec)} /km`,
-      fastSec: iFastSec,
-      slowSec: iSlowSec,
       hrRange: "95 - 100% FCmáx",
-      purpose: "Potencia aeróbica máxima, capacidad de transporte de oxígeno (ej. 5x1000m).",
+      purpose: "Potencia aeróbica máxima (ej. 5x1000m).",
       color: "rose"
     },
     R: {
       name: "Repetición / Velocidad Pura (R)",
       rangeStr: `${secondsToTimeStr(rFastSec)} - ${secondsToTimeStr(rSlowSec)} /km`,
-      fastSec: rFastSec,
-      slowSec: rSlowSec,
-      hrRange: "Anaeróbico láctico / Aláctico",
-      purpose: "Economía de carrera, reactividad del tobillo y velocidad terminal de 1000m.",
+      hrRange: "Anaeróbico",
+      purpose: "Economía y velocidad terminal de 1000m.",
       color: "purple"
     }
   };
 }
 
-/**
- * Genera automáticamente el plan de entrenamiento semanal dinámico de 6 días
- * adaptado al VDOT actual del atleta.
- */
 function generateWeeklyTrainingPlan(vdot) {
   const zones = calculatePaceZones(vdot);
 
   const plan = [
     {
       dayIndex: 1,
+      shortName: "Lun",
       dayName: "Lunes",
       type: "Rodaje Regenerativo + Rectas",
       intensity: "Recuperación",
@@ -387,23 +347,25 @@ function generateWeeklyTrainingPlan(vdot) {
       totalKm: 8,
       suggestedPace: zones.E.rangeStr,
       suggestedShoe: "Asics GT-1000 10",
-      description: "8 km continuos muy cómodos en Zona E suave. Al terminar, realizar movilidad de cadera y 4 rectas progresivas de 100m con recuperación andando para soltar piernas sin fatiga.",
+      description: "8 km continuos muy cómodos en Zona E suave. Al terminar, movilidad articular y 4 rectas progresivas de 100m para soltar piernas.",
       color: "emerald"
     },
     {
       dayIndex: 2,
+      shortName: "Mar",
       dayName: "Martes",
       type: "Calidad VO2max: 5x1000m",
       intensity: "Alta Intensidad (Series)",
       intensityFactor: 1.22,
       totalKm: 9,
-      suggestedPace: `Series @ ${zones.I.rangeStr} (Rec. 2' al trote)`,
+      suggestedPace: `5x1000m @ ${zones.I.rangeStr} (rec. 2')`,
       suggestedShoe: "Adidas Adizero Boston 11",
-      description: "2 km de calentamiento progresivo + ejercicios de técnica + 5 series de 1000m clavando el ritmo de Zona I con 2 minutos de recuperación al trote suave + 2 km de enfriamiento regenerativo.",
+      description: "2 km calentamiento + 5 series de 1000m clavando Zona I con 2 minutos de recuperación al trote + 2 km enfriamiento regenerativo.",
       color: "rose"
     },
     {
       dayIndex: 3,
+      shortName: "Mié",
       dayName: "Miércoles",
       type: "Rodaje Aeróbico de Mantenimiento",
       intensity: "Medio Aeróbico",
@@ -411,23 +373,25 @@ function generateWeeklyTrainingPlan(vdot) {
       totalKm: 10,
       suggestedPace: zones.E.rangeStr,
       suggestedShoe: "Olimpicus Corre 2",
-      description: "10 km a ritmo continuo y uniforme en Zona E media. Mantener cadencia alta (alrededor de 178-182 ppm) para optimizar la reactividad elástica.",
+      description: "10 km continuos y fluidos en Zona E media. Mantén cadencia alta (alrededor de 178-182 ppm) para optimizar la reactividad.",
       color: "sky"
     },
     {
       dayIndex: 4,
+      shortName: "Jue",
       dayName: "Jueves",
       type: "Calidad Umbral: Tempo Run 6K",
       intensity: "Alta Intensidad (Tempo/Umbral)",
       intensityFactor: 1.15,
       totalKm: 10,
-      suggestedPace: `Bloque central 6 km @ ${zones.T.rangeStr}`,
+      suggestedPace: `6 km @ ${zones.T.rangeStr}`,
       suggestedShoe: "Adidas Adizero Boston 11",
-      description: "2 km de calentamiento + 6 km sostenidos a ritmo Umbral de Lactato (Zona T) sin pasar a ritmo de competición + 2 km de vuelta a la calma. Fundamental para sostener el ritmo en 5K y 10K.",
+      description: "2 km calentamiento + 6 km sostenidos a ritmo Umbral de Lactato (Zona T) + 2 km soltar. Esencial para romper 18:00 en 5K.",
       color: "amber"
     },
     {
       dayIndex: 5,
+      shortName: "Vie",
       dayName: "Viernes",
       type: "Recuperación Activa & Soltar",
       intensity: "Muy Suave / Regenerativo",
@@ -435,23 +399,25 @@ function generateWeeklyTrainingPlan(vdot) {
       totalKm: 7,
       suggestedPace: zones.E.rangeStr,
       suggestedShoe: "Asics GT-1000 10",
-      description: "7 km muy tranquilos para oxigenar las piernas antes del fin de semana. Mantener pulsaciones bajas. Sesión breve de foam roller y estiramientos suaves al finalizar.",
+      description: "7 km muy tranquilos para oxigenar las piernas antes del fondo del fin de semana. Sesión breve de foam roller.",
       color: "emerald"
     },
     {
       dayIndex: 6,
+      shortName: "Sáb",
       dayName: "Sábado",
       type: "Tirada Larga Progresiva (Long Run)",
       intensity: "Fondo & Resistencia",
       intensityFactor: 1.10,
       totalKm: 16,
-      suggestedPace: `13 km @ ${zones.E.rangeStr} + 3 km finales @ ${zones.M.rangeStr}`,
+      suggestedPace: `13 km Zona E + 3 km finales @ ${zones.M.rangeStr}`,
       suggestedShoe: "Adidas Adizero Boston 11",
-      description: "16 km totales. Comenzar en Zona E controlada y en los últimos 3 km incrementar la zancada de manera progresiva hasta tocar ritmo Maratón (Zona M). Excelente estímulo fisiológico y mental.",
+      description: "16 km totales. Inicia en Zona E controlada y en los últimos 3 km acelera progresivamente hasta ritmo Maratón (Zona M).",
       color: "purple"
     },
     {
       dayIndex: 0,
+      shortName: "Dom",
       dayName: "Domingo",
       type: "Descanso Total & Asimilación",
       intensity: "Descanso",
@@ -459,7 +425,7 @@ function generateWeeklyTrainingPlan(vdot) {
       totalKm: 0,
       suggestedPace: "N/A",
       suggestedShoe: "Descanso",
-      description: "Descanso completo. La supercompensación y las adaptaciones fisiológicas ocurren durante el reposo. Hidratación abundante, nutrición completa y desconexión mental.",
+      description: "Descanso completo. La supercompensación y adaptaciones ocurren en reposo. Hidratación abundante y buena comida.",
       color: "zinc"
     }
   ];
@@ -471,28 +437,16 @@ function generateWeeklyTrainingPlan(vdot) {
 // 3. MOTOR METABÓLICO, NUTRICIÓN E HIDRATACIÓN
 // ============================================================================
 
-/**
- * Calcula la Tasa Metabólica Basal (TMB / BMR) mediante la fórmula Mifflin-St Jeor:
- * Hombres: (10 * peso en kg) + (6.25 * altura en cm) - (5 * edad) + 5
- */
 function calculateBMR(weightKg, heightCm, ageYears, gender = "male") {
   const base = (10 * weightKg) + (6.25 * heightCm) - (5 * ageYears);
   return gender === "male" ? Math.round(base + 5) : Math.round(base - 161);
 }
 
-/**
- * Calcula el gasto energético estimado de una sesión de carrera:
- * Kcal quemadas = Distancia (km) * Peso (kg) * Factor de Intensidad
- */
 function calculateWorkoutBurn(distanceKm, weightKg, intensityFactor = 1.05) {
   if (!distanceKm || distanceKm <= 0) return 0;
   return Math.round(distanceKm * weightKg * intensityFactor);
 }
 
-/**
- * Gasto Energético Total Diario (TDEE):
- * TDEE Dinámico = (TMB * Nivel de Actividad Base) + Kcal de entrenamiento del día
- */
 function calculateDynamicTDEE(weightKg, heightCm, ageYears, workoutCaloriesToday, activityLevel = 1.2) {
   const bmr = calculateBMR(weightKg, heightCm, ageYears);
   const baselineTDEE = Math.round(bmr * activityLevel);
@@ -504,13 +458,8 @@ function calculateDynamicTDEE(weightKg, heightCm, ageYears, workoutCaloriesToday
   };
 }
 
-/**
- * Meta de hidratación dinámica (ml):
- * Base diaria: 40 ml por kg de peso
- * Añadido dinámico: 75 ml por cada km recorrido en entrenamiento (compensación de sudoración)
- */
 function calculateDynamicHydrationGoal(weightKg, distanceKmToday = 0, intensityFactor = 1.05) {
-  const baseWater = Math.round(weightKg * 40); // Para 52 kg = 2080 ml
+  const baseWater = Math.round(weightKg * 40); // 52 kg = 2080 ml
   const sweatLoss = Math.round(distanceKmToday * (intensityFactor > 1.1 ? 80 : 65));
   return {
     baseWater,
@@ -542,7 +491,6 @@ class StateManager {
     this.meals = this.load(STORAGE_KEYS.MEALS, {});
     this.hydration = this.load(STORAGE_KEYS.HYDRATION, {});
     
-    // Validar VDOT si aún no está en el perfil
     if (!this.profile.currentVDOT) {
       this.recalculateUserVDOT();
     }
@@ -553,7 +501,7 @@ class StateManager {
       const data = localStorage.getItem(key);
       return data ? JSON.parse(data) : defaultValue;
     } catch (e) {
-      console.error(`Error loading ${key} from localStorage`, e);
+      console.error(`Error cargando ${key}:`, e);
       return defaultValue;
     }
   }
@@ -562,7 +510,7 @@ class StateManager {
     try {
       localStorage.setItem(key, JSON.stringify(data));
     } catch (e) {
-      console.error(`Error saving ${key} to localStorage`, e);
+      console.error(`Error guardando ${key}:`, e);
     }
   }
 
@@ -577,7 +525,6 @@ class StateManager {
   getTodayHabits() {
     const todayKey = this.getTodayKey();
     if (!this.habits[todayKey]) {
-      // Inicializar con las misiones fijas
       this.habits[todayKey] = DEFAULT_DAILY_HABITS.map(h => ({
         ...h,
         completed: false
@@ -588,6 +535,7 @@ class StateManager {
   }
 
   toggleHabit(habitId) {
+    triggerHaptic(15);
     const todayKey = this.getTodayKey();
     const list = this.getTodayHabits();
     const habit = list.find(h => h.id === habitId);
@@ -601,6 +549,7 @@ class StateManager {
 
   addCustomHabit(label) {
     if (!label.trim()) return;
+    triggerHaptic(12);
     const todayKey = this.getTodayKey();
     const list = this.getTodayHabits();
     const newHabit = {
@@ -623,6 +572,7 @@ class StateManager {
   }
 
   addMeal(meal) {
+    triggerHaptic(12);
     const todayKey = this.getTodayKey();
     if (!this.meals[todayKey]) this.meals[todayKey] = [];
     const newMeal = {
@@ -636,6 +586,7 @@ class StateManager {
   }
 
   deleteMeal(mealId) {
+    triggerHaptic(10);
     const todayKey = this.getTodayKey();
     if (!this.meals[todayKey]) return;
     this.meals[todayKey] = this.meals[todayKey].filter(m => m.id !== mealId);
@@ -648,6 +599,7 @@ class StateManager {
   }
 
   addHydration(amountMl) {
+    triggerHaptic(15);
     const todayKey = this.getTodayKey();
     const current = this.getTodayHydration();
     const updated = Math.max(0, current + amountMl);
@@ -656,12 +608,12 @@ class StateManager {
     return updated;
   }
 
-  // Medicamentos
   getMedications() {
     return this.medications;
   }
 
   saveMedication(med) {
+    triggerHaptic(12);
     if (med.id) {
       const idx = this.medications.findIndex(m => m.id === med.id);
       if (idx !== -1) {
@@ -679,11 +631,13 @@ class StateManager {
   }
 
   deleteMedication(medId) {
+    triggerHaptic(10);
     this.medications = this.medications.filter(m => m.id !== medId);
     this.save(STORAGE_KEYS.MEDICATIONS, this.medications);
   }
 
   toggleMedicationTaken(medId) {
+    triggerHaptic(15);
     const todayKey = this.getTodayKey();
     const med = this.medications.find(m => m.id === medId);
     if (med) {
@@ -700,13 +654,13 @@ class StateManager {
     }
   }
 
-  // Workouts y Adaptación VDOT
   getTodayWorkoutLog() {
     const todayKey = this.getTodayKey();
     return this.workoutLogs.find(w => w.date === todayKey);
   }
 
   addWorkoutLog(workout) {
+    triggerHaptic(20);
     const todayKey = this.getTodayKey();
     const newLog = {
       id: "run_" + Date.now(),
@@ -714,7 +668,6 @@ class StateManager {
       ...workout
     };
 
-    // Actualizar kilometraje de la zapatilla seleccionada
     if (workout.shoeId && workout.distanceKm) {
       const shoe = this.profile.shoes.find(s => s.id === workout.shoeId);
       if (shoe) {
@@ -725,21 +678,16 @@ class StateManager {
 
     this.workoutLogs.unshift(newLog);
     this.save(STORAGE_KEYS.WORKOUT_LOGS, this.workoutLogs);
-
-    // Motor de adaptación fisiológica progresiva
     this.adaptVDOTFromWorkout(newLog);
-
     return newLog;
   }
 
   deleteWorkoutLog(logId) {
+    triggerHaptic(10);
     this.workoutLogs = this.workoutLogs.filter(w => w.id !== logId);
     this.save(STORAGE_KEYS.WORKOUT_LOGS, this.workoutLogs);
   }
 
-  /**
-   * Recalcula el VDOT base a partir del 5K reciente (19:26)
-   */
   recalculateUserVDOT() {
     const sec5K = timeStrToSeconds(this.profile.metrics.k5Recent || "19:26");
     const vdot = calculateVDOT(5000, sec5K);
@@ -748,22 +696,16 @@ class StateManager {
     return vdot;
   }
 
-  /**
-   * Adapta el VDOT dinámicamente según la ejecución de la sesión real
-   */
   adaptVDOTFromWorkout(log) {
     const distMeters = log.distanceKm * 1000;
     const timeSec = timeStrToSeconds(log.timeStr);
     if (!timeSec || !distMeters) return;
 
-    // Calcular VDOT de la sesión realizada
     const sessionVDOT = calculateVDOT(distMeters, timeSec);
     const currentVDOT = this.profile.currentVDOT || 51.52;
 
-    // Si la sesión fue una prueba/carrera o superó con creces el VDOT actual
     if (log.type.includes("VO2max") || log.type.includes("Carrera") || log.type.includes("Tempo")) {
       const paceSec = timeSec / log.distanceKm;
-      // Si el ritmo fue notablemente más rápido y con RPE controlado (<= 8)
       if (sessionVDOT > currentVDOT) {
         const delta = Math.min(0.4, parseFloat(((sessionVDOT - currentVDOT) * 0.25).toFixed(2)));
         if (delta > 0.05) {
@@ -775,7 +717,7 @@ class StateManager {
             oldVDOT,
             newVDOT: this.profile.currentVDOT,
             delta,
-            message: `¡Supercompensación detectada! Tu sesión de ${log.distanceKm} km a ${secondsToTimeStr(paceSec)}/km demuestra mejor economía. Tu VDOT ha ascendido de ${oldVDOT} a ${this.profile.currentVDOT}. Todos tus ritmos del plan semanal se han ajustado automáticamente.`
+            message: `¡Supercompensación detectada! Tu sesión de ${log.distanceKm} km a ${secondsToTimeStr(paceSec)}/km demuestra mejor economía. Tu VDOT ascendió de ${oldVDOT} a ${this.profile.currentVDOT}. Todos tus ritmos del plan semanal se han ajustado automáticamente.`
           };
           return;
         }
@@ -784,11 +726,10 @@ class StateManager {
   }
 }
 
-// Inicializar gestor de estado global
 const state = new StateManager();
 
 // ============================================================================
-// 5. MOTOR DE CONSEJOS Y ALERTAS CRUZADAS (FEEDBACK INTERCONECTADO)
+// 5. MOTOR DE ALERTAS Y FEEDBACK CRUZADO
 // ============================================================================
 
 function generateCrossModuleAlerts() {
@@ -797,14 +738,11 @@ function generateCrossModuleAlerts() {
   const now = new Date();
   const currentHour = now.getHours();
 
-  // 1. Obtener plan de hoy y sesión real
   const dayIndex = now.getDay();
   const weeklyPlan = generateWeeklyTrainingPlan(state.profile.currentVDOT);
   const plannedToday = weeklyPlan.find(p => p.dayIndex === dayIndex);
   const loggedWorkout = state.getTodayWorkoutLog();
 
-  // Distancia y calorías de carrera hoy
-  const workoutKmToday = loggedWorkout ? Number(loggedWorkout.distanceKm) : (plannedToday ? plannedToday.totalKm : 0);
   const isHighIntensity = (loggedWorkout && (loggedWorkout.type.includes("VO2max") || loggedWorkout.type.includes("Tempo") || loggedWorkout.type.includes("Series"))) ||
                           (plannedToday && plannedToday.intensity.includes("Alta Intensidad"));
 
@@ -812,7 +750,6 @@ function generateCrossModuleAlerts() {
     ? calculateWorkoutBurn(loggedWorkout.distanceKm, state.profile.weight, loggedWorkout.intensityFactor || 1.15)
     : 0;
 
-  // 2. Cálculos metabólicos y de nutrición
   const tdeeData = calculateDynamicTDEE(
     state.profile.weight,
     state.profile.height,
@@ -823,10 +760,7 @@ function generateCrossModuleAlerts() {
 
   const todayMeals = state.getTodayMeals();
   const totalCaloriesConsumed = todayMeals.reduce((acc, m) => acc + Number(m.calories || 0), 0);
-  const totalCarbs = todayMeals.reduce((acc, m) => acc + Number(m.carbs || 0), 0);
-  const totalProtein = todayMeals.reduce((acc, m) => acc + Number(m.protein || 0), 0);
 
-  // 3. Cálculos de hidratación
   const hydrationData = calculateDynamicHydrationGoal(
     state.profile.weight,
     loggedWorkout ? Number(loggedWorkout.distanceKm) : (plannedToday ? plannedToday.totalKm : 0),
@@ -835,38 +769,34 @@ function generateCrossModuleAlerts() {
   const currentWater = state.getTodayHydration();
   const waterPercent = Math.round((currentWater / hydrationData.totalWaterGoal) * 100);
 
-  // ALERTA 1: Déficit Calórico Severo Post-Velocidad (Requerimiento explícito)
+  // ALERTA 1: Déficit Calórico Severo
   const caloricDeficit = tdeeData.totalTDEE - totalCaloriesConsumed;
   if ((isHighIntensity || workoutCaloriesToday > 400) && caloricDeficit > 550 && currentHour >= 13) {
     alerts.push({
       id: "alert_caloric_deficit",
-      level: "critical", // rose / red
-      icon: "alert-triangle",
-      title: "Riesgo de Déficit Calórico Severo tras Entrenamiento Intenso",
-      message: `Has quemado ${workoutCaloriesToday} kcal en tu sesión y solo has ingerido ${totalCaloriesConsumed} kcal de tu TDEE modificado de hoy (${tdeeData.totalTDEE} kcal). Déficit actual: -${caloricDeficit} kcal. Aumenta la ingesta de carbohidratos complejos y proteína de calidad para evitar catabolismo muscular y no comprometer la resíntesis de glucógeno.`,
+      level: "critical",
+      title: "Riesgo de Déficit Calórico Severo",
+      message: `Gastaste ${workoutCaloriesToday} kcal en tu sesión y solo has ingerido ${totalCaloriesConsumed} kcal de tu TDEE (${tdeeData.totalTDEE} kcal). Déficit: -${caloricDeficit} kcal. Ingiere carbohidratos complejos y proteína para evitar catabolismo muscular.`,
       action: "Registrar Comida",
       targetTab: "tab-nutrition"
     });
   }
 
-  // ALERTA 2: Hidratación Insuficiente después de las 4:00 PM (Requerimiento explícito)
+  // ALERTA 2: Hidratación a las 4:00 PM
   if (currentHour >= 16 && currentWater < (hydrationData.totalWaterGoal * 0.70)) {
     const pendingWater = hydrationData.totalWaterGoal - currentWater;
     alerts.push({
       id: "alert_dehydration_4pm",
-      level: "warning", // amber
-      icon: "droplet",
-      title: "Alerta de Hidratación Insuficiente (Superadas las 4:00 PM)",
-      message: `Llevas registrados ${currentWater} ml de tu meta dinámica de ${hydrationData.totalWaterGoal} ml (ajustada por la pérdida de sudor en entrenamiento). Estás al ${waterPercent}%. La deshidratación eleva el pulso cardíaco basal y deteriora la recuperación nocturna. Bebe al menos ${pendingWater} ml antes de descansar.`,
+      level: "warning",
+      title: "Alerta de Hidratación (Superadas las 4:00 PM)",
+      message: `Llevas ${currentWater} ml de tu meta dinámica de ${hydrationData.totalWaterGoal} ml (${waterPercent}%). La deshidratación eleva el pulso cardíaco en reposo. Bebe al menos ${pendingWater} ml antes de descansar.`,
       action: "+500 ml Agua",
       targetAction: "add_water_500"
     });
   }
 
-  // ALERTA 3: Medicamentos pendientes del día
-  const pendingMeds = state.getMedications().filter(m => {
-    return !m.intakeHistory || !m.intakeHistory[todayKey];
-  });
+  // ALERTA 3: Medicamentos pendientes
+  const pendingMeds = state.getMedications().filter(m => !m.intakeHistory || !m.intakeHistory[todayKey]);
   if (pendingMeds.length > 0) {
     const overdueMeds = pendingMeds.filter(m => {
       if (!m.times) return false;
@@ -877,40 +807,36 @@ function generateCrossModuleAlerts() {
     if (overdueMeds.length > 0) {
       alerts.push({
         id: "alert_meds_overdue",
-        level: "info", // sky / zinc
-        icon: "pill",
-        title: "Toma de Medicación / Suplemento Pendiente",
-        message: `Tienes tomas programadas pendientes: ${overdueMeds.map(m => `${m.name} (${m.dose}) a las ${m.times}`).join(', ')}.`,
-        action: "Ver Medicamentos",
+        level: "info",
+        title: "Toma de Medicación Pendiente",
+        message: `Tomas atrasadas: ${overdueMeds.map(m => `${m.name} (${m.dose})`).join(', ')}.`,
+        action: "Ver Meds",
         targetTab: "tab-medications"
       });
     }
   }
 
-  // ALERTA 4: Desgaste en Rotación de Zapatillas
+  // ALERTA 4: Desgaste de zapatillas
   state.profile.shoes.forEach(shoe => {
     if (shoe.km >= shoe.maxKm * 0.85) {
       alerts.push({
         id: `alert_shoe_${shoe.id}`,
         level: "warning",
-        icon: "activity",
-        title: `Zapatillas con Alto Desgaste: ${shoe.name}`,
-        message: `Llevas ${shoe.km} km acumulados de un límite recomendado de ${shoe.maxKm} km (${Math.round((shoe.km/shoe.maxKm)*100)}%). Comprueba el estado de la mediasuela y el desgaste del talón/antepié para prevenir periostitis o sobrecargas en el tendón de Aquiles.`,
-        action: "Ver Rotación",
+        title: `Zapatillas al 85%: ${shoe.name}`,
+        message: `Llevas ${shoe.km} de ${shoe.maxKm} km recomendados. Revisa el desgaste de la mediasuela para prevenir periostitis.`,
+        action: "Ver Zapatos",
         targetTab: "tab-running"
       });
     }
   });
 
-  // ALERTA 5: Aviso de adaptación de VDOT si ocurrió recientemente
   if (state.lastAdaptationNotice) {
     alerts.push({
       id: "alert_vdot_adapted",
-      level: "success", // emerald
-      icon: "zap",
+      level: "success",
       title: "¡Adaptación Fisiológica Recalculada!",
       message: state.lastAdaptationNotice.message,
-      action: "Ver Nuevos Ritmos",
+      action: "Ver Ritmos",
       targetTab: "tab-running"
     });
   }
@@ -919,8 +845,10 @@ function generateCrossModuleAlerts() {
 }
 
 // ============================================================================
-// 6. RENDERIZADO DEL DOM Y CONTROLADORES DE EVENTOS
+// 6. RENDERIZADO DEL DOM Y CONTROLADORES MÓVILES
 // ============================================================================
+
+let currentSelectedPlanDay = new Date().getDay(); // Día seleccionado en el planificador
 
 document.addEventListener("DOMContentLoaded", () => {
   initApp();
@@ -933,15 +861,11 @@ function initApp() {
   registerPWA();
 }
 
-/**
- * Control de pestañas (Tabs)
- */
 function setupNavigation() {
   const tabButtons = document.querySelectorAll("[data-tab-target]");
-  const tabContents = document.querySelectorAll(".tab-content");
-
   tabButtons.forEach(btn => {
     btn.addEventListener("click", () => {
+      triggerHaptic(12);
       const targetId = btn.getAttribute("data-tab-target");
       switchTab(targetId);
     });
@@ -965,12 +889,24 @@ function switchTab(targetId) {
 
   tabButtons.forEach(btn => {
     const isTarget = btn.getAttribute("data-tab-target") === targetId;
-    if (isTarget) {
-      btn.classList.add("text-emerald-400", "border-emerald-400", "bg-slate-800/80");
-      btn.classList.remove("text-slate-400", "border-transparent");
+    if (btn.classList.contains("tab-btn")) {
+      // Barra inferior móvil
+      if (isTarget) {
+        btn.classList.add("active", "text-emerald-400");
+        btn.classList.remove("text-slate-400");
+      } else {
+        btn.classList.remove("active", "text-emerald-400");
+        btn.classList.add("text-slate-400");
+      }
     } else {
-      btn.classList.remove("text-emerald-400", "border-emerald-400", "bg-slate-800/80");
-      btn.classList.add("text-slate-400", "border-transparent");
+      // Barra de escritorio
+      if (isTarget) {
+        btn.classList.add("text-emerald-400", "border-emerald-400", "bg-slate-800/80");
+        btn.classList.remove("text-slate-400", "border-transparent");
+      } else {
+        btn.classList.remove("text-emerald-400", "border-emerald-400", "bg-slate-800/80");
+        btn.classList.add("text-slate-400", "border-transparent");
+      }
     }
   });
 
@@ -978,9 +914,6 @@ function switchTab(targetId) {
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
-/**
- * Renderizado general de toda la aplicación
- */
 function renderAll() {
   renderHeaderStatus();
   renderDailyQuote();
@@ -994,24 +927,19 @@ function renderAll() {
   renderProfileModal();
 }
 
-/**
- * Encabezado con datos rápidos del corredor
- */
 function renderHeaderStatus() {
   const badgeContainer = document.getElementById("header-user-badge");
   if (badgeContainer) {
     badgeContainer.innerHTML = `
-      <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-950/60 text-emerald-300 border border-emerald-800/60 shadow-sm">
-        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-        ${state.profile.age} años • ${state.profile.weight} kg • 6 d/sem • VDOT ${state.profile.currentVDOT}
+      <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-950/60 text-emerald-300 border border-emerald-800/60 shadow-sm">
+        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+        <span>VDOT ${state.profile.currentVDOT}</span>
+        <span class="text-slate-400 font-normal hidden xs:inline">• ${state.profile.weight}kg</span>
       </span>
     `;
   }
 }
 
-/**
- * Frase Filosófica Diaria
- */
 let currentQuoteIndex = -1;
 function renderDailyQuote(forceRandom = false) {
   const quoteText = document.getElementById("quote-text");
@@ -1036,9 +964,6 @@ function renderDailyQuote(forceRandom = false) {
   quoteTag.textContent = item.tag;
 }
 
-/**
- * Misiones Diarias (Checklist)
- */
 function renderDailyHabits() {
   const container = document.getElementById("daily-habits-container");
   if (!container) return;
@@ -1049,15 +974,15 @@ function renderDailyHabits() {
   habits.forEach(habit => {
     const isCompleted = habit.completed;
     const card = document.createElement("div");
-    card.className = `flex items-center justify-between p-3.5 rounded-xl border transition-all duration-200 cursor-pointer select-none ${
+    card.className = `flex items-center justify-between p-3 rounded-xl border transition-all duration-200 cursor-pointer select-none touch-press ${
       isCompleted 
         ? "bg-slate-900/90 border-emerald-800/50 text-slate-300 shadow-inner" 
         : "bg-slate-900/50 border-slate-800 hover:border-slate-700 text-slate-100 shadow-sm"
     }`;
 
     card.innerHTML = `
-      <div class="flex items-center gap-3.5 flex-1">
-        <div class="w-6 h-6 rounded-lg border flex items-center justify-center transition-colors ${
+      <div class="flex items-center gap-3 flex-1">
+        <div class="w-6 h-6 rounded-lg border flex items-center justify-center shrink-0 transition-colors ${
           isCompleted 
             ? "bg-emerald-500 border-emerald-400 text-slate-950 font-bold" 
             : "border-slate-600 bg-slate-800/60 text-transparent hover:border-emerald-500"
@@ -1067,13 +992,13 @@ function renderDailyHabits() {
           </svg>
         </div>
         <div class="flex flex-col">
-          <span class="text-sm font-semibold tracking-wide ${isCompleted ? 'line-through text-slate-400 font-normal' : ''}">
+          <span class="text-xs sm:text-sm font-semibold tracking-wide ${isCompleted ? 'line-through text-slate-400 font-normal' : ''}">
             ${habit.label}
           </span>
-          <span class="text-xs text-slate-400">${habit.detail || ''}</span>
+          <span class="text-[10px] text-slate-400">${habit.detail || ''}</span>
         </div>
       </div>
-      ${habit.fixed ? `<span class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700/50">Fija</span>` : ''}
+      ${habit.fixed ? `<span class="text-[9px] uppercase font-bold px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700/50">Fija</span>` : ''}
     `;
 
     card.addEventListener("click", () => {
@@ -1087,9 +1012,6 @@ function renderDailyHabits() {
   });
 }
 
-/**
- * Barra de Progreso Diario Unificada
- */
 function renderDailyProgress() {
   const progressBar = document.getElementById("daily-progress-bar");
   const progressText = document.getElementById("daily-progress-percent");
@@ -1102,21 +1024,17 @@ function renderDailyProgress() {
   const completedHabits = habits.filter(h => h.completed).length;
   const habitsScore = totalHabits > 0 ? (completedHabits / totalHabits) : 0;
 
-  // Medicamentos
   const meds = state.getMedications();
   const takenMeds = meds.filter(m => m.intakeHistory && m.intakeHistory[todayKey]).length;
   const medsScore = meds.length > 0 ? (takenMeds / meds.length) : 1;
 
-  // Entrenamiento
   const hasWorkout = !!state.getTodayWorkoutLog();
   const workoutScore = hasWorkout ? 1 : 0;
 
-  // Hidratación
   const currentWater = state.getTodayHydration();
   const waterGoal = calculateDynamicHydrationGoal(state.profile.weight).totalWaterGoal;
   const waterScore = Math.min(1, currentWater / waterGoal);
 
-  // Ponderación general: Hábitos (40%), Meds (20%), Entrenamiento (20%), Hidratación (20%)
   const totalScore = Math.round(
     (habitsScore * 40) + 
     (medsScore * 20) + 
@@ -1129,24 +1047,21 @@ function renderDailyProgress() {
 
   if (progressLabel) {
     if (totalScore === 100) {
-      progressLabel.textContent = "¡Día Impecable! Máxima disciplina alcanzada";
-      progressLabel.className = "text-xs font-semibold text-emerald-400";
+      progressLabel.textContent = "¡Día Impecable! Máxima disciplina estoica";
+      progressLabel.className = "text-[11px] font-semibold text-emerald-400";
     } else if (totalScore >= 70) {
       progressLabel.textContent = "Excelente avance en tus objetivos de hoy";
-      progressLabel.className = "text-xs font-semibold text-sky-400";
+      progressLabel.className = "text-[11px] font-semibold text-sky-400";
     } else if (totalScore >= 40) {
       progressLabel.textContent = "Día en progreso. Mantén la inercia";
-      progressLabel.className = "text-xs font-semibold text-amber-400";
+      progressLabel.className = "text-[11px] font-semibold text-amber-400";
     } else {
-      progressLabel.textContent = "Comienza cumpliendo las primeras misiones del día";
-      progressLabel.className = "text-xs font-semibold text-slate-400";
+      progressLabel.textContent = "Cumple las primeras misiones del día";
+      progressLabel.className = "text-[11px] font-semibold text-slate-400";
     }
   }
 }
 
-/**
- * Renderizado de Alertas Interconectadas
- */
 function renderAlerts() {
   const container = document.getElementById("alerts-container");
   if (!container) return;
@@ -1156,9 +1071,9 @@ function renderAlerts() {
 
   if (alerts.length === 0) {
     container.innerHTML = `
-      <div class="flex items-center gap-3 p-3.5 rounded-xl bg-slate-900/40 border border-slate-800 text-slate-300 text-xs">
-        <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-sm shadow-emerald-500/50"></span>
-        <span>Todos los parámetros sincronizados en equilibrio óptimo (Nutrición, Hidratación, Entrenamiento y Recuperación).</span>
+      <div class="flex items-center gap-2.5 p-3 rounded-xl bg-slate-900/40 border border-slate-800 text-slate-300 text-xs">
+        <span class="w-2 h-2 rounded-full bg-emerald-400 shrink-0"></span>
+        <span>Parámetros sincronizados en equilibrio (Nutrición, Hidratación, Entrenamiento y Descanso).</span>
       </div>
     `;
     return;
@@ -1166,9 +1081,7 @@ function renderAlerts() {
 
   alerts.forEach(alert => {
     const card = document.createElement("div");
-    
     let borderClass = "border-slate-800 bg-slate-900/70";
-    let textClass = "text-slate-200";
     let badgeColor = "bg-slate-800 text-slate-300";
 
     if (alert.level === "critical") {
@@ -1185,27 +1098,27 @@ function renderAlerts() {
       badgeColor = "bg-sky-900/60 text-sky-300 border border-sky-700/60";
     }
 
-    card.className = `p-4 rounded-xl border flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-lg ${borderClass}`;
+    card.className = `p-3 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shadow-md ${borderClass}`;
     card.innerHTML = `
-      <div class="flex items-start gap-3 flex-1">
-        <span class="px-2 py-1 rounded text-[11px] font-bold uppercase tracking-wider ${badgeColor} shrink-0 mt-0.5">
+      <div class="flex items-start gap-2.5 flex-1">
+        <span class="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${badgeColor} shrink-0 mt-0.5">
           ${alert.level === 'critical' ? 'Alerta Crítica' : alert.level === 'warning' ? 'Aviso' : alert.level === 'success' ? 'Progreso' : 'Recordatorio'}
         </span>
-        <div class="space-y-1">
-          <h4 class="text-sm font-bold text-slate-100">${alert.title}</h4>
-          <p class="text-xs text-slate-300 leading-relaxed">${alert.message}</p>
+        <div class="space-y-0.5">
+          <h4 class="text-xs font-bold text-slate-100">${alert.title}</h4>
+          <p class="text-[11px] text-slate-300 leading-relaxed">${alert.message}</p>
         </div>
       </div>
       ${alert.action ? `
-        <button class="alert-action-btn self-start md:self-center shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-100 border border-slate-700 transition-colors shadow-sm">
+        <button class="alert-action-btn self-end sm:self-center shrink-0 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-slate-800 hover:bg-slate-700 text-slate-100 border border-slate-700 transition-colors touch-press">
           ${alert.action}
         </button>
       ` : ''}
     `;
 
     if (alert.action) {
-      const btn = card.querySelector(".alert-action-btn");
-      btn.addEventListener("click", () => {
+      card.querySelector(".alert-action-btn").addEventListener("click", () => {
+        triggerHaptic(12);
         if (alert.targetTab) {
           switchTab(alert.targetTab);
         } else if (alert.targetAction === "add_water_500") {
@@ -1222,14 +1135,15 @@ function renderAlerts() {
 }
 
 /**
- * Módulo de Running: Planificador Automático, Zonas y Registro
+ * Módulo de Running Optimizado para Celular
  */
 function renderRunningModule() {
   const vdot = state.profile.currentVDOT || 51.52;
   const zones = calculatePaceZones(vdot);
   const weeklyPlan = generateWeeklyTrainingPlan(vdot);
+  const todayIndex = new Date().getDay();
 
-  // 1. Métricas y Metas
+  // Métricas
   const vdotCurrentDisplay = document.getElementById("running-vdot-current");
   const target5kDisplay = document.getElementById("running-goal-5k");
   const target10kDisplay = document.getElementById("running-goal-10k");
@@ -1240,102 +1154,167 @@ function renderRunningModule() {
   if (target10kDisplay) target10kDisplay.textContent = state.profile.goals.k10Target;
   if (recent5kDisplay) recent5kDisplay.textContent = `${state.profile.metrics.k5Recent} (PR ${state.profile.metrics.k5PR})`;
 
-  // 2. Tabla de Zonas de Ritmo
+  // Barra de Selector de Días Móvil (Lun, Mar, Mié, Jue, Vie, Sáb, Dom)
+  const pillsBar = document.getElementById("weekly-day-pills-bar");
+  if (pillsBar) {
+    pillsBar.innerHTML = "";
+    // Reordenar para empezar en Lunes (1..6, 0)
+    const sortedDays = [1, 2, 3, 4, 5, 6, 0];
+    sortedDays.forEach(dayIdx => {
+      const planItem = weeklyPlan.find(p => p.dayIndex === dayIdx);
+      const isToday = dayIdx === todayIndex;
+      const isSelected = dayIdx === currentSelectedPlanDay;
+
+      const pillBtn = document.createElement("button");
+      pillBtn.className = `px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 flex items-center gap-1 touch-press ${
+        isSelected 
+          ? "bg-emerald-500 text-slate-950 shadow-md shadow-emerald-950/50 scale-105" 
+          : "bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800"
+      }`;
+
+      pillBtn.innerHTML = `
+        <span>${planItem.shortName}</span>
+        ${isToday ? `<span class="w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-slate-950' : 'bg-emerald-400'}"></span>` : ''}
+      `;
+
+      pillBtn.addEventListener("click", () => {
+        triggerHaptic(10);
+        currentSelectedPlanDay = dayIdx;
+        renderRunningModule();
+      });
+
+      pillsBar.appendChild(pillBtn);
+    });
+  }
+
+  // Tarjeta del Día Seleccionado en el Planificador
+  const planContainer = document.getElementById("running-weekly-plan-container");
+  if (planContainer) {
+    planContainer.innerHTML = "";
+    const activeItem = weeklyPlan.find(p => p.dayIndex === currentSelectedPlanDay) || weeklyPlan[0];
+    const isToday = activeItem.dayIndex === todayIndex;
+
+    const card = document.createElement("div");
+    card.className = `p-4 sm:p-5 rounded-2xl border transition-all ${
+      isToday 
+        ? "bg-slate-900 border-emerald-500/80 ring-1 ring-emerald-500/30 shadow-xl shadow-emerald-950/30" 
+        : "bg-slate-900/60 border-slate-800 text-slate-300"
+    }`;
+
+    card.innerHTML = `
+      <div class="flex items-start justify-between gap-2 mb-2">
+        <div class="flex items-center gap-2">
+          <span class="text-xs font-black uppercase tracking-wider px-2 py-0.5 rounded ${isToday ? 'bg-emerald-500 text-slate-950' : 'bg-slate-800 text-slate-300'}">
+            ${activeItem.dayName} ${isToday ? '• HOY' : ''}
+          </span>
+          <span class="text-[11px] font-semibold text-slate-400">${activeItem.intensity}</span>
+        </div>
+        <span class="font-mono text-sm font-black text-slate-100">${activeItem.totalKm > 0 ? `${activeItem.totalKm} km` : 'Descanso'}</span>
+      </div>
+
+      <h4 class="text-sm font-bold text-slate-100 mb-1">${activeItem.type}</h4>
+      <p class="text-xs text-slate-300 leading-relaxed mb-3">${activeItem.description}</p>
+      
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between pt-2 border-t border-slate-800 gap-2 text-xs">
+        <div class="flex items-center gap-1.5 text-slate-300 font-mono">
+          <svg class="w-3.5 h-3.5 text-emerald-400 fill-none stroke-current stroke-2 shrink-0" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="10"></circle>
+            <polyline points="12 6 12 12 16 14"></polyline>
+          </svg>
+          <span class="truncate">${activeItem.suggestedPace}</span>
+        </div>
+        <div class="flex items-center gap-1.5 text-slate-400">
+          <svg class="w-3.5 h-3.5 text-amber-400 fill-none stroke-current stroke-2 shrink-0" viewBox="0 0 24 24">
+            <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path>
+            <line x1="4" y1="22" x2="4" y2="15"></line>
+          </svg>
+          <span class="truncate">${activeItem.suggestedShoe}</span>
+        </div>
+      </div>
+
+      ${activeItem.totalKm > 0 ? `
+        <div class="pt-3">
+          <button id="btn-prefill-session" class="w-full py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-emerald-300 hover:text-white border border-slate-700 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors touch-press">
+            <span>⚡ Prellenar y Registrar esta Sesión</span>
+          </button>
+        </div>
+      ` : ''}
+    `;
+
+    const btnPrefill = card.querySelector("#btn-prefill-session");
+    if (btnPrefill) {
+      btnPrefill.addEventListener("click", () => {
+        triggerHaptic(15);
+        const distInput = document.getElementById("workout-distance");
+        const typeSelect = document.getElementById("workout-type");
+        const shoeSelect = document.getElementById("workout-shoe-select");
+        const formSection = document.getElementById("section-log-workout");
+
+        if (distInput) distInput.value = activeItem.totalKm;
+        if (typeSelect) {
+          // Buscar opción más cercana
+          for (let opt of typeSelect.options) {
+            if (opt.value.toLowerCase().includes(activeItem.type.substring(0, 7).toLowerCase())) {
+              typeSelect.value = opt.value;
+              break;
+            }
+          }
+        }
+        if (shoeSelect) {
+          const matchedShoe = state.profile.shoes.find(s => s.name.toLowerCase().includes(activeItem.suggestedShoe.substring(0, 6).toLowerCase()));
+          if (matchedShoe) shoeSelect.value = matchedShoe.id;
+        }
+
+        if (formSection) {
+          formSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+        const timeInput = document.getElementById("workout-time");
+        if (timeInput) setTimeout(() => timeInput.focus(), 400);
+      });
+    }
+
+    planContainer.appendChild(card);
+  }
+
+  // Zonas de Ritmo
   const zonesContainer = document.getElementById("running-zones-container");
   if (zonesContainer) {
     zonesContainer.innerHTML = "";
     Object.keys(zones).forEach(key => {
       const zone = zones[key];
       const row = document.createElement("div");
-      row.className = "flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-lg bg-slate-900/70 border border-slate-800/80 gap-2";
+      row.className = "flex items-center justify-between p-2.5 rounded-xl bg-slate-900/70 border border-slate-800/80 gap-2";
       row.innerHTML = `
-        <div class="flex items-center gap-2.5">
-          <span class="w-7 h-7 rounded-md bg-slate-800 border border-slate-700 flex items-center justify-center text-xs font-black text-emerald-400">
+        <div class="flex items-center gap-2">
+          <span class="w-6 h-6 rounded-md bg-slate-800 border border-slate-700 flex items-center justify-center text-xs font-black text-emerald-400 shrink-0">
             ${key}
           </span>
-          <div>
-            <div class="text-sm font-semibold text-slate-100">${zone.name}</div>
-            <div class="text-xs text-slate-400">${zone.hrRange} • ${zone.purpose}</div>
+          <div class="truncate">
+            <div class="text-xs font-semibold text-slate-100">${zone.name}</div>
+            <div class="text-[10px] text-slate-400 truncate">${zone.hrRange}</div>
           </div>
         </div>
-        <div class="text-right sm:self-center shrink-0">
-          <span class="px-2.5 py-1 rounded bg-slate-950 font-mono text-sm font-bold text-emerald-300 border border-slate-800">
-            ${zone.rangeStr}
-          </span>
-        </div>
+        <span class="px-2 py-0.5 rounded bg-slate-950 font-mono text-xs font-bold text-emerald-300 border border-slate-800 shrink-0">
+          ${zone.rangeStr}
+        </span>
       `;
       zonesContainer.appendChild(row);
     });
   }
 
-  // 3. Planificador Semanal Dinámico (6 días)
-  const planContainer = document.getElementById("running-weekly-plan-container");
-  if (planContainer) {
-    planContainer.innerHTML = "";
-    const todayIndex = new Date().getDay();
-
-    weeklyPlan.forEach(item => {
-      const isToday = item.dayIndex === todayIndex;
-      const card = document.createElement("div");
-      card.className = `p-4 rounded-xl border transition-all ${
-        isToday 
-          ? "bg-slate-900 border-emerald-500/80 ring-1 ring-emerald-500/30 shadow-lg shadow-emerald-950/20" 
-          : "bg-slate-900/50 border-slate-800/80 text-slate-300"
-      }`;
-
-      card.innerHTML = `
-        <div class="flex items-start justify-between gap-3 mb-2">
-          <div class="flex items-center gap-2">
-            <span class="text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded ${isToday ? 'bg-emerald-500 text-slate-950' : 'bg-slate-800 text-slate-300'}">
-              ${item.dayName} ${isToday ? '• HOY' : ''}
-            </span>
-            <span class="text-xs font-semibold text-slate-400">${item.intensity}</span>
-          </div>
-          <span class="font-mono text-sm font-bold text-slate-100">${item.totalKm > 0 ? `${item.totalKm} km` : 'Descanso'}</span>
-        </div>
-        <h4 class="text-sm font-bold text-slate-100 mb-1">${item.type}</h4>
-        <p class="text-xs text-slate-400 leading-relaxed mb-3">${item.description}</p>
-        
-        <div class="flex flex-wrap items-center justify-between pt-2 border-t border-slate-800/70 gap-2 text-xs">
-          <div class="flex items-center gap-1.5 text-slate-300 font-mono">
-            <svg class="w-3.5 h-3.5 text-emerald-400 fill-none stroke-current stroke-2" viewBox="0 0 24 24">
-              <circle cx="12" cy="12" r="10"></circle>
-              <polyline points="12 6 12 12 16 14"></polyline>
-            </svg>
-            <span>${item.suggestedPace}</span>
-          </div>
-          <div class="flex items-center gap-1.5 text-slate-400">
-            <svg class="w-3.5 h-3.5 text-amber-400 fill-none stroke-current stroke-2" viewBox="0 0 24 24">
-              <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path>
-              <line x1="4" y1="22" x2="4" y2="15"></line>
-            </svg>
-            <span class="truncate max-w-[170px]">${item.suggestedShoe}</span>
-          </div>
-        </div>
-      `;
-      planContainer.appendChild(card);
-    });
-  }
-
-  // 4. Selector de zapatillas en el formulario de registro
+  // Selector de zapatillas
   const shoeSelect = document.getElementById("workout-shoe-select");
   if (shoeSelect) {
     shoeSelect.innerHTML = `<option value="">Selecciona zapatilla...</option>`;
     state.profile.shoes.forEach(s => {
-      shoeSelect.innerHTML += `<option value="${s.id}">${s.name} (${s.km} km acumulados)</option>`;
+      shoeSelect.innerHTML += `<option value="${s.id}">${s.name} (${s.km} km)</option>`;
     });
   }
 
-  // 5. Render de la rotación de zapatillas
   renderShoeRotation();
-
-  // 6. Historial de Entrenamientos Registrados
   renderWorkoutLogs();
 }
 
-/**
- * Render de Rotación de Zapatillas
- */
 function renderShoeRotation() {
   const container = document.getElementById("shoe-rotation-container");
   if (!container) return;
@@ -1344,23 +1323,24 @@ function renderShoeRotation() {
   state.profile.shoes.forEach(shoe => {
     const percent = Math.min(100, Math.round((shoe.km / shoe.maxKm) * 100));
     const card = document.createElement("div");
-    card.className = "p-3.5 rounded-xl bg-slate-900/60 border border-slate-800 space-y-2";
+    card.className = "p-3 rounded-xl bg-slate-900/60 border border-slate-800 space-y-1.5";
     card.innerHTML = `
       <div class="flex items-center justify-between text-xs">
-        <span class="font-bold text-slate-100">${shoe.name}</span>
-        <span class="font-mono text-slate-300 font-semibold">${shoe.km} / ${shoe.maxKm} km</span>
+        <span class="font-bold text-slate-100 truncate">${shoe.name}</span>
+        <span class="font-mono text-slate-300 font-semibold text-[11px] shrink-0">${shoe.km}/${shoe.maxKm}km</span>
       </div>
-      <div class="text-[11px] text-slate-400">${shoe.role}</div>
-      <div class="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+      <div class="text-[10px] text-slate-400 truncate">${shoe.role}</div>
+      <div class="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
         <div class="h-full rounded-full ${percent > 85 ? 'bg-rose-500' : percent > 65 ? 'bg-amber-400' : 'bg-emerald-400'}" style="width: ${percent}%"></div>
       </div>
-      <div class="flex justify-between items-center text-[10px] text-slate-400 pt-1">
-        <span>Vida útil: ${percent}%</span>
+      <div class="flex justify-between items-center text-[9px] text-slate-400">
+        <span>Uso: ${percent}%</span>
         <button class="text-slate-400 hover:text-emerald-400 underline shoe-edit-km" data-shoe-id="${shoe.id}">Editar km</button>
       </div>
     `;
 
     card.querySelector(".shoe-edit-km").addEventListener("click", () => {
+      triggerHaptic(10);
       const newKmStr = prompt(`Actualizar kilometraje para ${shoe.name}:`, shoe.km);
       if (newKmStr !== null && !isNaN(newKmStr)) {
         shoe.km = parseFloat(Number(newKmStr).toFixed(1));
@@ -1374,9 +1354,6 @@ function renderShoeRotation() {
   });
 }
 
-/**
- * Historial de entrenamientos registrados
- */
 function renderWorkoutLogs() {
   const container = document.getElementById("workout-logs-container");
   if (!container) return;
@@ -1384,8 +1361,8 @@ function renderWorkoutLogs() {
 
   if (state.workoutLogs.length === 0) {
     container.innerHTML = `
-      <div class="p-6 text-center text-slate-400 text-xs border border-dashed border-slate-800 rounded-xl">
-        No hay sesiones de carrera registradas aún. Completa el formulario para registrar tu primer entrenamiento.
+      <div class="p-5 text-center text-slate-400 text-xs border border-dashed border-slate-800 rounded-xl">
+        Sin sesiones registradas aún. Registra tu primer entrenamiento.
       </div>
     `;
     return;
@@ -1394,34 +1371,32 @@ function renderWorkoutLogs() {
   state.workoutLogs.forEach(log => {
     const card = document.createElement("div");
     const shoe = state.profile.shoes.find(s => s.id === log.shoeId);
-    card.className = "p-3.5 rounded-xl bg-slate-900/70 border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs";
+    card.className = "p-3 rounded-xl bg-slate-900/70 border border-slate-800 flex items-center justify-between gap-2 text-xs";
     card.innerHTML = `
-      <div class="space-y-1">
-        <div class="flex items-center gap-2">
-          <span class="font-bold text-slate-100 text-sm">${log.distanceKm} km</span>
-          <span class="font-mono text-emerald-400 font-semibold">@ ${log.paceStr || '--:--'}/km</span>
-          <span class="px-2 py-0.5 rounded bg-slate-800 text-[10px] text-slate-300 font-medium">${log.type}</span>
+      <div class="space-y-0.5 flex-1 min-w-0">
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="font-bold text-slate-100">${log.distanceKm} km</span>
+          <span class="font-mono text-emerald-400 font-semibold text-[11px]">@ ${log.paceStr || '--:--'}/km</span>
+          <span class="px-1.5 py-0.2 rounded bg-slate-800 text-[9px] text-slate-300 truncate max-w-[130px]">${log.type}</span>
         </div>
-        <div class="text-slate-400 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px]">
+        <div class="text-slate-400 text-[10px] flex items-center gap-2 truncate">
           <span>📅 ${log.date}</span>
           <span>⏱️ ${log.timeStr}</span>
-          ${log.avgHr ? `<span>❤️ ${log.avgHr} bpm</span>` : ''}
-          ${shoe ? `<span>👟 ${shoe.name}</span>` : ''}
+          ${log.avgHr ? `<span>❤️ ${log.avgHr}</span>` : ''}
+          ${shoe ? `<span>👟 ${shoe.name.split(' ')[0]}</span>` : ''}
         </div>
-        ${log.notes ? `<p class="text-slate-400 italic text-[11px] pt-1">"${log.notes}"</p>` : ''}
       </div>
-      <div class="flex items-center gap-2 self-end sm:self-center">
-        <button class="delete-workout-btn p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-slate-800 transition-colors" data-id="${log.id}" title="Eliminar registro">
-          <svg class="w-4 h-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24">
-            <polyline points="3 6 5 6 21 6"></polyline>
-            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-          </svg>
-        </button>
-      </div>
+      <button class="delete-workout-btn text-slate-400 hover:text-rose-400 p-2 shrink-0 touch-press" data-id="${log.id}" title="Eliminar">
+        <svg class="w-4 h-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
     `;
 
     card.querySelector(".delete-workout-btn").addEventListener("click", () => {
-      if (confirm("¿Deseas eliminar este registro de entrenamiento?")) {
+      triggerHaptic(10);
+      if (confirm("¿Eliminar este entrenamiento?")) {
         state.deleteWorkoutLog(log.id);
         renderRunningModule();
         renderNutritionModule();
@@ -1435,9 +1410,6 @@ function renderWorkoutLogs() {
   });
 }
 
-/**
- * Módulo de Nutrición & TDEE
- */
 function renderNutritionModule() {
   const loggedWorkout = state.getTodayWorkoutLog();
   const workoutCaloriesToday = loggedWorkout 
@@ -1458,7 +1430,6 @@ function renderNutritionModule() {
   const totalProtein = todayMeals.reduce((acc, m) => acc + Number(m.protein || 0), 0);
   const totalFat = todayMeals.reduce((acc, m) => acc + Number(m.fat || 0), 0);
 
-  // Mostrar métricas en UI
   const bmrDisplay = document.getElementById("nutrition-bmr");
   const baselineTdeeDisplay = document.getElementById("nutrition-baseline-tdee");
   const workoutBurnDisplay = document.getElementById("nutrition-workout-burn");
@@ -1475,10 +1446,9 @@ function renderNutritionModule() {
   const balance = totalCalories - tdeeData.totalTDEE;
   if (calorieBalanceDisplay) {
     calorieBalanceDisplay.textContent = `${balance > 0 ? '+' : ''}${balance} kcal`;
-    calorieBalanceDisplay.className = `font-mono text-base font-bold ${balance < -450 ? 'text-rose-400' : balance > 200 ? 'text-amber-400' : 'text-emerald-400'}`;
+    calorieBalanceDisplay.className = `font-mono text-xs sm:text-sm font-bold ${balance < -450 ? 'text-rose-400' : balance > 200 ? 'text-amber-400' : 'text-emerald-400'}`;
   }
 
-  // Macros UI
   const carbsDisplay = document.getElementById("nutrition-total-carbs");
   const proteinDisplay = document.getElementById("nutrition-total-protein");
   const fatDisplay = document.getElementById("nutrition-total-fat");
@@ -1487,7 +1457,6 @@ function renderNutritionModule() {
   if (proteinDisplay) proteinDisplay.textContent = `${totalProtein}g`;
   if (fatDisplay) fatDisplay.textContent = `${totalFat}g`;
 
-  // Barra de progreso calórico
   const calorieBar = document.getElementById("nutrition-calorie-bar");
   if (calorieBar) {
     const percent = Math.min(100, Math.round((totalCalories / tdeeData.totalTDEE) * 100));
@@ -1495,10 +1464,7 @@ function renderNutritionModule() {
     calorieBar.className = `h-full rounded-full transition-all duration-300 ${percent > 105 ? 'bg-amber-400' : percent < 50 ? 'bg-rose-500' : 'bg-emerald-400'}`;
   }
 
-  // Lista de comidas de hoy
   renderTodayMealsList();
-
-  // Rellenar selector de base de datos de comidas
   populateFoodSelect();
 }
 
@@ -1509,7 +1475,7 @@ function populateFoodSelect() {
   FOOD_DATABASE.forEach(food => {
     const opt = document.createElement("option");
     opt.value = food.id;
-    opt.textContent = `${food.name} (${food.calories} kcal | ${food.carbs}g C | ${food.protein}g P)`;
+    opt.textContent = `${food.name} (${food.calories} kcal | ${food.carbs}g C)`;
     select.appendChild(opt);
   });
 }
@@ -1522,8 +1488,8 @@ function renderTodayMealsList() {
 
   if (meals.length === 0) {
     container.innerHTML = `
-      <div class="p-6 text-center text-slate-400 text-xs border border-dashed border-slate-800 rounded-xl">
-        No has registrado alimentos para el día de hoy.
+      <div class="p-4 text-center text-slate-400 text-xs border border-dashed border-slate-800 rounded-xl">
+        No has registrado comidas hoy.
       </div>
     `;
     return;
@@ -1531,24 +1497,23 @@ function renderTodayMealsList() {
 
   meals.forEach(m => {
     const row = document.createElement("div");
-    row.className = "flex items-center justify-between p-3 rounded-lg bg-slate-900/60 border border-slate-800/80 text-xs";
+    row.className = "flex items-center justify-between p-2.5 rounded-xl bg-slate-900/60 border border-slate-800/80 text-xs";
     row.innerHTML = `
-      <div class="space-y-0.5">
-        <div class="flex items-center gap-2">
-          <span class="font-bold text-slate-100">${m.name}</span>
-          <span class="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-400">${m.category || 'Comida'}</span>
+      <div class="space-y-0.5 min-w-0 flex-1">
+        <div class="flex items-center gap-1.5">
+          <span class="font-bold text-slate-100 truncate">${m.name}</span>
+          <span class="text-[9px] px-1.5 py-0.2 rounded bg-slate-800 text-slate-400 shrink-0">${m.category || 'Comida'}</span>
         </div>
-        <div class="text-slate-400 text-[11px] font-mono">
-          <span class="text-emerald-400 font-semibold">${m.calories} kcal</span> • 
+        <div class="text-slate-400 text-[10px] font-mono">
+          <span class="text-emerald-400 font-bold">${m.calories} kcal</span> • 
           <span>${m.carbs}g C</span> • 
-          <span>${m.protein}g P</span> • 
-          <span>${m.fat}g G</span>
+          <span>${m.protein}g P</span>
         </div>
       </div>
-      <div class="flex items-center gap-2">
-        <span class="text-slate-400 text-[11px]">${m.timestamp || ''}</span>
-        <button class="delete-meal-btn text-slate-400 hover:text-rose-400 p-1" data-id="${m.id}" title="Eliminar comida">
-          <svg class="w-4 h-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24">
+      <div class="flex items-center gap-1.5 shrink-0">
+        <span class="text-slate-500 text-[10px]">${m.timestamp || ''}</span>
+        <button class="delete-meal-btn text-slate-400 hover:text-rose-400 p-1.5 touch-press" data-id="${m.id}" title="Eliminar">
+          <svg class="w-3.5 h-3.5 fill-none stroke-current stroke-2" viewBox="0 0 24 24">
             <line x1="18" y1="6" x2="6" y2="18"></line>
             <line x1="6" y1="6" x2="18" y2="18"></line>
           </svg>
@@ -1567,9 +1532,6 @@ function renderTodayMealsList() {
   });
 }
 
-/**
- * Módulo de Hidratación
- */
 function renderHydrationModule() {
   const loggedWorkout = state.getTodayWorkoutLog();
   const workoutKm = loggedWorkout ? Number(loggedWorkout.distanceKm) : 0;
@@ -1591,14 +1553,9 @@ function renderHydrationModule() {
   if (percentDisplay) percentDisplay.textContent = `${percent}%`;
   if (baseDisplay) baseDisplay.textContent = `${hydrationData.baseWater} ml`;
   if (sweatDisplay) sweatDisplay.textContent = `+${hydrationData.sweatLoss} ml`;
-  if (waterBar) {
-    waterBar.style.width = `${percent}%`;
-  }
+  if (waterBar) waterBar.style.width = `${percent}%`;
 }
 
-/**
- * Módulo de Medicamentos (CRUD)
- */
 function renderMedicationsModule() {
   const container = document.getElementById("medications-container");
   if (!container) return;
@@ -1610,8 +1567,8 @@ function renderMedicationsModule() {
 
   if (meds.length === 0) {
     container.innerHTML = `
-      <div class="p-6 text-center text-slate-400 text-xs border border-dashed border-slate-800 rounded-xl">
-        No hay medicamentos ni suplementos registrados. Utiliza el formulario arriba para agregar uno.
+      <div class="p-5 text-center text-slate-400 text-xs border border-dashed border-slate-800 rounded-xl">
+        Sin medicamentos registrados. Usa el formulario arriba.
       </div>
     `;
     return;
@@ -1626,7 +1583,7 @@ function renderMedicationsModule() {
     }
 
     const card = document.createElement("div");
-    card.className = `p-4 rounded-xl border flex flex-col md:flex-row md:items-center justify-between gap-3 transition-all ${
+    card.className = `p-3.5 rounded-2xl border flex items-center justify-between gap-3 transition-all touch-press ${
       isTaken 
         ? "bg-slate-900/60 border-emerald-800/40 opacity-80" 
         : isOverdue 
@@ -1635,8 +1592,8 @@ function renderMedicationsModule() {
     }`;
 
     card.innerHTML = `
-      <div class="flex items-start gap-3 flex-1">
-        <button class="toggle-med-btn mt-0.5 w-6 h-6 rounded-lg border flex items-center justify-center shrink-0 transition-colors ${
+      <div class="flex items-center gap-3 flex-1 min-w-0">
+        <button class="toggle-med-btn w-6 h-6 rounded-lg border flex items-center justify-center shrink-0 transition-colors ${
           isTaken 
             ? "bg-emerald-500 border-emerald-400 text-slate-950 font-bold" 
             : "border-slate-600 bg-slate-800 text-transparent hover:border-emerald-400"
@@ -1645,32 +1602,23 @@ function renderMedicationsModule() {
             <polyline points="20 6 9 17 4 12"></polyline>
           </svg>
         </button>
-        <div class="space-y-1">
-          <div class="flex items-center gap-2">
-            <h4 class="text-sm font-bold text-slate-100 ${isTaken ? 'line-through text-slate-400' : ''}">${med.name}</h4>
-            <span class="px-2 py-0.5 rounded text-[10px] font-semibold ${
+        <div class="space-y-0.5 truncate">
+          <div class="flex items-center gap-1.5">
+            <h4 class="text-xs sm:text-sm font-bold text-slate-100 truncate ${isTaken ? 'line-through text-slate-400' : ''}">${med.name}</h4>
+            <span class="px-1.5 py-0.2 rounded text-[9px] font-semibold shrink-0 ${
               isTaken ? 'bg-emerald-950 text-emerald-400 border border-emerald-800/60' : 
               isOverdue ? 'bg-amber-950 text-amber-300 border border-amber-800/60' : 
               'bg-slate-800 text-slate-300'
             }">
-              ${isTaken ? `Tomado (${med.intakeHistory[todayKey].time})` : isOverdue ? 'Atrasado' : 'Pendiente'}
+              ${isTaken ? 'Tomado' : isOverdue ? 'Atrasado' : 'Pendiente'}
             </span>
           </div>
-          <div class="text-xs text-slate-400 flex flex-wrap items-center gap-x-3 gap-y-1">
-            <span>💊 Dosis: <b>${med.dose}</b></span>
-            <span>⏰ Horario: <b>${med.times || '--:--'}</b></span>
-            <span>🔁 Frecuencia: <b>${med.frequency || 'Diaria'}</b></span>
+          <div class="text-[11px] text-slate-400 truncate">
+            <span>${med.dose}</span> • <span>⏰ ${med.times || '--:--'}</span> • <span>${med.frequency}</span>
           </div>
-          ${med.notes ? `<p class="text-slate-400 italic text-[11px]">Nota: ${med.notes}</p>` : ''}
         </div>
       </div>
-      <div class="flex items-center gap-2 self-end md:self-center">
-        <button class="edit-med-btn p-1.5 rounded-lg text-slate-400 hover:text-sky-400 hover:bg-slate-800 transition-colors" data-id="${med.id}" title="Editar">
-          <svg class="w-4 h-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24">
-            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-          </svg>
-        </button>
+      <div class="flex items-center gap-1 shrink-0">
         <button class="delete-med-btn p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-slate-800 transition-colors" data-id="${med.id}" title="Eliminar">
           <svg class="w-4 h-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24">
             <polyline points="3 6 5 6 21 6"></polyline>
@@ -1680,7 +1628,6 @@ function renderMedicationsModule() {
       </div>
     `;
 
-    // Botón marcar como tomado
     card.querySelector(".toggle-med-btn").addEventListener("click", () => {
       state.toggleMedicationTaken(med.id);
       renderMedicationsModule();
@@ -1688,31 +1635,8 @@ function renderMedicationsModule() {
       renderAlerts();
     });
 
-    // Botón editar
-    card.querySelector(".edit-med-btn").addEventListener("click", () => {
-      const name = prompt("Nombre del medicamento/suplemento:", med.name);
-      if (name === null) return;
-      const dose = prompt("Dosis:", med.dose);
-      if (dose === null) return;
-      const times = prompt("Hora de toma (HH:MM):", med.times);
-      if (times === null) return;
-      const freq = prompt("Frecuencia:", med.frequency);
-      if (freq === null) return;
-
-      state.saveMedication({
-        ...med,
-        name: name.trim() || med.name,
-        dose: dose.trim() || med.dose,
-        times: times.trim() || med.times,
-        frequency: freq.trim() || med.frequency
-      });
-      renderMedicationsModule();
-      renderAlerts();
-    });
-
-    // Botón eliminar
     card.querySelector(".delete-med-btn").addEventListener("click", () => {
-      if (confirm(`¿Eliminar ${med.name} de tus medicamentos?`)) {
+      if (confirm(`¿Eliminar ${med.name}?`)) {
         state.deleteMedication(med.id);
         renderMedicationsModule();
         renderAlerts();
@@ -1724,9 +1648,6 @@ function renderMedicationsModule() {
   });
 }
 
-/**
- * Modal de Perfil & Objetivos
- */
 function renderProfileModal() {
   const ageInput = document.getElementById("profile-age");
   const weightInput = document.getElementById("profile-weight");
@@ -1752,15 +1673,14 @@ function renderProfileModal() {
 // ============================================================================
 
 function setupEventListeners() {
-  // Frase nueva aleatoria
   const btnNewQuote = document.getElementById("btn-new-quote");
   if (btnNewQuote) {
     btnNewQuote.addEventListener("click", () => {
+      triggerHaptic(10);
       renderDailyQuote(true);
     });
   }
 
-  // Agregar hábito personalizado
   const btnAddHabit = document.getElementById("btn-add-custom-habit");
   const inputAddHabit = document.getElementById("input-custom-habit");
   if (btnAddHabit && inputAddHabit) {
@@ -1779,7 +1699,6 @@ function setupEventListeners() {
     });
   }
 
-  // Formulario Registro de Entrenamiento
   const formWorkout = document.getElementById("form-workout-log");
   if (formWorkout) {
     formWorkout.addEventListener("submit", (e) => {
@@ -1793,7 +1712,7 @@ function setupEventListeners() {
       const notes = document.getElementById("workout-notes").value.trim();
 
       if (!dist || dist <= 0 || !timeStr) {
-        alert("Por favor ingresa una distancia y un tiempo válidos.");
+        alert("Ingresa distancia y tiempo válidos.");
         return;
       }
 
@@ -1814,11 +1733,10 @@ function setupEventListeners() {
 
       formWorkout.reset();
       renderAll();
-      alert(`¡Sesión de ${dist} km registrada exitosamente a ritmo medio de ${paceStr}/km!`);
+      alert(`¡Sesión de ${dist} km guardada a ${paceStr}/km!`);
     });
   }
 
-  // Selector rápido de alimentos DB
   const foodSelect = document.getElementById("food-db-select");
   if (foodSelect) {
     foodSelect.addEventListener("change", () => {
@@ -1842,7 +1760,6 @@ function setupEventListeners() {
     });
   }
 
-  // Formulario Comida Manual
   const formMeal = document.getElementById("form-manual-meal");
   if (formMeal) {
     formMeal.addEventListener("submit", (e) => {
@@ -1855,7 +1772,7 @@ function setupEventListeners() {
       const category = document.getElementById("meal-category").value;
 
       if (!name || calories <= 0) {
-        alert("Ingresa al menos un nombre y las calorías del alimento.");
+        alert("Ingresa nombre y calorías.");
         return;
       }
 
@@ -1867,7 +1784,6 @@ function setupEventListeners() {
     });
   }
 
-  // Botones rápidos de hidratación
   document.querySelectorAll("[data-water-add]").forEach(btn => {
     btn.addEventListener("click", () => {
       const ml = parseInt(btn.getAttribute("data-water-add"));
@@ -1878,7 +1794,6 @@ function setupEventListeners() {
     });
   });
 
-  // Formulario Agregar Medicamento
   const formMed = document.getElementById("form-add-medication");
   if (formMed) {
     formMed.addEventListener("submit", (e) => {
@@ -1890,7 +1805,7 @@ function setupEventListeners() {
       const notes = document.getElementById("med-notes").value.trim();
 
       if (!name || !dose) {
-        alert("Por favor completa el nombre y la dosis del medicamento.");
+        alert("Completa el nombre y la dosis.");
         return;
       }
 
@@ -1902,7 +1817,7 @@ function setupEventListeners() {
     });
   }
 
-  // Modal Perfil: Abrir / Cerrar / Guardar
+  // Modal / Bottom Sheet
   const profileModal = document.getElementById("profile-modal");
   const btnOpenProfile = document.getElementById("btn-open-profile");
   const btnCloseProfile = document.getElementById("btn-close-profile");
@@ -1910,6 +1825,7 @@ function setupEventListeners() {
 
   if (btnOpenProfile && profileModal) {
     btnOpenProfile.addEventListener("click", () => {
+      triggerHaptic(12);
       renderProfileModal();
       profileModal.classList.remove("hidden");
     });
@@ -1917,6 +1833,7 @@ function setupEventListeners() {
 
   if (btnCloseProfile && profileModal) {
     btnCloseProfile.addEventListener("click", () => {
+      triggerHaptic(8);
       profileModal.classList.add("hidden");
     });
   }
@@ -1935,19 +1852,18 @@ function setupEventListeners() {
       state.profile.goals.k5Target = document.getElementById("profile-5k-goal").value.trim() || state.profile.goals.k5Target;
       state.profile.goals.k10Target = document.getElementById("profile-10k-goal").value.trim() || state.profile.goals.k10Target;
 
-      // Recalcular VDOT a partir de las métricas actualizadas
       state.recalculateUserVDOT();
       state.save(STORAGE_KEYS.PROFILE, state.profile);
 
       profileModal.classList.add("hidden");
       renderAll();
-      alert("Perfil fisiológico y objetivos actualizados. Ritmos recalculados correctamente.");
+      alert("Perfil actualizado y ritmos recalculados.");
     });
   }
 }
 
 // ============================================================================
-// 8. REGISTRO DE SERVICE WORKER & INSTALACIÓN PWA
+// 8. REGISTRO DE SERVICE WORKER & PWA
 // ============================================================================
 
 let deferredPrompt = null;
@@ -1957,10 +1873,10 @@ function registerPWA() {
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('./service-worker.js')
         .then(reg => {
-          console.log('[PWA] Service Worker registrado exitosamente con scope:', reg.scope);
+          console.log('[PWA] Service Worker registrado:', reg.scope);
         })
         .catch(err => {
-          console.warn('[PWA] Error registrando Service Worker:', err);
+          console.warn('[PWA] Error en Service Worker:', err);
         });
     });
   }
@@ -1980,17 +1896,12 @@ function registerPWA() {
       if (deferredPrompt) {
         deferredPrompt.prompt();
         const { outcome } = await deferredPrompt.userChoice;
-        console.log('[PWA] Respuesta del usuario a la instalación:', outcome);
+        console.log('[PWA] Instalación:', outcome);
         deferredPrompt = null;
         pwaInstallBtn.classList.add('hidden');
       } else {
-        alert("Para instalar esta app en tu móvil, abre el menú de tu navegador (los tres puntos o el botón de compartir) y pulsa en 'Agregar a la pantalla principal' o 'Instalar aplicación'.");
+        alert("Para instalar en tu móvil:\n• Android: Menú del navegador (3 puntos) -> 'Instalar aplicación' / 'Agregar a la pantalla principal'.\n• iPhone: Botón Compartir -> 'Agregar al inicio'.");
       }
     });
   }
-
-  window.addEventListener('appinstalled', () => {
-    console.log('[PWA] App instalada con éxito');
-    if (pwaInstallBtn) pwaInstallBtn.classList.add('hidden');
-  });
 }
